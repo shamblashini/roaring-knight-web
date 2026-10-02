@@ -43,14 +43,8 @@ fn item_props(id: f64) -> (f64, f64, f64) {
 }
 
 /// HP numbers in the char boxes (global.hpfont).
-/// TODO: switch to `crate::battle::heroes::draw_hpfont_text` once the heroes module provides it.
 fn draw_hpfont_text(g: &mut Game, x: f64, y: f64, text: &str, halign_right: bool) {
-    g.draw_set_font(font("fnt_main"));
-    if halign_right {
-        g.draw_set_halign(HAlign::Right);
-    }
-    g.draw_text(x, y, text);
-    g.draw_set_halign(HAlign::Left);
+    crate::battle::heroes::draw_hpfont_text(g, x, y, text, halign_right)
 }
 
 fn knight_end_cutscene(g: &mut Game) -> bool {
