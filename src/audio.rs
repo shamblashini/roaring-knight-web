@@ -1,4 +1,5 @@
 //! WebAudio sound playback mirroring Deltarune's snd_* helpers.
+#![allow(deprecated)]
 //! Sounds are referenced by name ("snd_hurt1"); each play returns a handle.
 
 use std::cell::RefCell;

@@ -2,7 +2,7 @@
 //! obj_heart, obj_grazebox, obj_growtangle, obj_dbulletcontroller, bullet parents,
 //! scr_damage & co. Field names follow the GML variable names.
 
-use crate::assets::{Spr, NO_SPR};
+use crate::assets::Spr;
 use crate::obj_vars;
 use crate::rt::{Game, Id, Inst, Object, NOONE};
 use std::collections::HashMap;
@@ -207,65 +207,6 @@ pub fn scr_get_box(g: &mut Game, n: i32) -> f64 {
     }
 }
 
-/// obj_heart (the SOUL). `x,y` is its top-left (sprite origin 0,0); centre is x+10,y+10.
-pub struct Heart {
-    pub wspeed: f64,
-    pub fly: f64,
-    pub darken: f64,
-    pub darkamt: f64,
-    pub dmgnoise: f64,
-    pub canmove: f64,
-    pub boundaryup: f64,
-    pub color: f64,
-    pub disableslow: f64,
-    pub siner: f64,
-}
-impl Default for Heart {
-    fn default() -> Self {
-        Heart { wspeed: 4.0, fly: 0.0, darken: 1.0, darkamt: 0.0, dmgnoise: 0.0, canmove: 1.0, boundaryup: 0.0, color: 0.0, disableslow: 0.0, siner: 0.0 }
-    }
-}
-
-/// obj_growtangle (the bullet board). Parent obj_battlesolid.
-pub struct Growtangle {
-    pub timer: f64,
-    pub maxtimer: f64,
-    pub growcon: f64,
-    pub target_angle: f64,
-    pub fullgrow: f64,
-    pub keep: f64,
-    pub megakeep: f64,
-    pub maxxscale: f64,
-    pub maxyscale: f64,
-    pub custom_box: bool,
-    pub init: bool,
-    pub spr_custom_box: Spr,
-    pub sizer: f64,
-    pub growscale: f64,
-    pub growth: f64,
-}
-impl Default for Growtangle {
-    fn default() -> Self {
-        Growtangle {
-            timer: 0.0,
-            maxtimer: 15.0,
-            growcon: 1.0,
-            target_angle: 0.0,
-            fullgrow: 0.0,
-            keep: 0.0,
-            megakeep: 0.0,
-            maxxscale: 2.0,
-            maxyscale: 2.0,
-            custom_box: false,
-            init: false,
-            spr_custom_box: NO_SPR,
-            sizer: 0.0,
-            growscale: 2.0,
-            growth: 0.0,
-        }
-    }
-}
-
 // ============================================================================ bullet controller
 
 /// Parameters handed to an attack when the Knight starts it (obj_dbulletcontroller fields).
@@ -377,78 +318,5 @@ pub fn spawn_dbulletcontroller(g: &mut Game, knight: &Inst, typ: i32, difficulty
 /// The obj_knight_enemy instance (GML creatorid for every attack).
 pub fn knight_id(g: &mut Game) -> Option<Id> { g.first("obj_knight_enemy") }
 
-// ============================================================================ knight
-
-/// obj_knight_enemy variables (Create_0 + scr_enemy_object_init). Behaviour lives in battle::knight.
-/// Attack ports may read/write these, e.g. `g.get_first::<KnightEnemy>("obj_knight_enemy")`.
-#[derive(Default)]
-pub struct KnightEnemy {
-    // scr_enemy_object_init
-    pub myself: usize,
-    pub becomeflash: f64,
-    pub flash: f64,
-    pub turns: f64,
-    pub talktimer: f64,
-    pub state: f64,
-    pub siner: f64,
-    pub talked: f64,
-    pub attacked: f64,
-    pub hurt: f64,
-    pub hurttimer: f64,
-    pub hurtshake: f64,
-    pub shakex: f64,
-    pub acttimer: f64,
-    pub con: f64,
-    pub mytarget: f64,
-    pub acting: f64,
-    pub actcon: f64,
-    pub actingsus: f64,
-    pub actingral: f64,
-    pub actconsus: f64,
-    pub actconral: f64,
-    pub hurtspriteoffx: f64,
-    pub hurtspriteoffy: f64,
-    pub idlesprite: Spr,
-    pub hurtsprite: Spr,
-    pub sparedsprite: Spr,
-    // obj_knight_enemy Create_0
-    pub siner2: f64,
-    pub aetimer: f64,
-    pub phaseturn: f64,
-    pub phase: f64,
-    pub turn: f64,
-    pub myattackchoice: f64,
-    pub difficulty: f64,
-    pub rotatingslash3used: bool,
-    pub holdbreathcount: f64,
-    pub sactcount: f64,
-    pub ractcount: f64,
-    pub chargeupcon: f64,
-    pub chargeuptimer: f64,
-    pub endcon: f64,
-    pub endtimer: f64,
-    pub end_cutscene_version: f64,
-    pub balloonturn: f64,
-    pub ballooncon: f64,
-    pub balloonend: f64,
-    pub blocking: f64,
-    pub blockanim: f64,
-    pub blocktimer: f64,
-    pub damagereduction: f64,
-    pub damagereductiontimer: f64,
-    pub krisdamagereduction: f64,
-    pub whiteflash: f64,
-    pub haveusedroaring: bool,
-    pub checkcount: f64,
-    pub aoedamage: bool,
-    pub stronghurtanim: bool,
-    pub progamer: bool,
-    pub krisdownmessage: bool,
-    pub susiedownmessage: bool,
-    pub ralseidownmessage: bool,
-    pub setdownmessage: bool,
-    pub damagecounter: f64,
-    pub phase4turn: f64,
-    pub rtimer: f64,
-    pub attackchosen: bool,
-}
+pub use crate::battle::knight::KnightEnemy;
+pub use crate::battle::soul::{Growtangle, Heart};

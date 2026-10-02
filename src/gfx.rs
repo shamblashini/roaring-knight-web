@@ -129,6 +129,7 @@ pub type SurfaceId = i32;
 
 pub struct Gfx {
     pub gl: GL,
+    #[allow(dead_code)]
     prog: WebGlProgram,
     u_proj: WebGlUniformLocation,
     u_fog: WebGlUniformLocation,

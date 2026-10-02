@@ -16,6 +16,8 @@ pub fn scene_draw_under(_s: &mut Scene, g: &mut Game) {
     g.draw_text(20.0, 20.0, "THE ROARING KNIGHT");
 }
 pub fn scene_draw_over(_s: &mut Scene, _g: &mut Game) {}
-pub fn collision_pass(_g: &mut Game) {}
-pub fn scr_damage_impl(_me: &mut Inst, _g: &mut Game) {}
-pub fn mytarget(_g: &mut Game) -> f64 { 0.0 }
+pub fn scr_damage_impl(me: &mut Inst, g: &mut Game) { crate::battle::soul::scr_damage_impl(me, g) }
+/// `mytarget` of the knight (set by scr_randomtarget during its turn).
+pub fn mytarget(g: &mut Game) -> f64 {
+    g.get_first::<crate::battle::KnightEnemy>("obj_knight_enemy").map(|(_, k)| k.mytarget).unwrap_or(4.0)
+}
