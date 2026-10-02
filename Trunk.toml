@@ -1,2 +1,2 @@
 [watch]
-ignore = ["extract", "tools", "target"]
+ignore = ["extract", "tools", "target", ".claude", "dist", "docs"]

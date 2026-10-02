@@ -16,22 +16,12 @@ use std::cell::Cell;
 // ============================================================================ hooks into other modules
 
 thread_local! {
-    static SCR_SPELL_HOOK: Cell<Option<fn(&mut Game, f64, usize)>> = const { Cell::new(None) };
     static SCR_WINCOMBAT_HOOK: Cell<Option<fn(&mut Game)>> = const { Cell::new(None) };
 }
 
-/// Register `scr_spell(spell, caster_slot)` (spells module). obj_heroparent calls it when its
-/// spell/item animation timer (spelltimer) runs out. The hero instance is executing at that point.
-pub fn set_scr_spell_hook(f: fn(&mut Game, f64, usize)) { SCR_SPELL_HOOK.with(|h| h.set(Some(f))); }
 /// Register `scr_wincombat()` (controller). Only reachable if every monster is gone.
 pub fn set_scr_wincombat_hook(f: fn(&mut Game)) { SCR_WINCOMBAT_HOOK.with(|h| h.set(Some(f))); }
 
-fn call_scr_spell(g: &mut Game, spell: f64, caster: usize) {
-    match SCR_SPELL_HOOK.with(|h| h.get()) {
-        Some(f) => f(g, spell, caster),
-        None => crate::log("heroes: scr_spell hook not registered (battle::heroes::set_scr_spell_hook)"),
-    }
-}
 fn call_scr_wincombat(g: &mut Game) {
     match SCR_WINCOMBAT_HOOK.with(|h| h.get()) {
         Some(f) => f(g),
@@ -756,7 +746,7 @@ impl Object for Hero {
                 if scr_monsterpop(g) > 0.0 {
                     let sp = g.glob.charspecial[my];
                     self.caster = my as f64;
-                    call_scr_spell(g, sp, my);
+                    crate::battle::spells::scr_spell(g, sp, my, me, self);
                 }
                 self.state = 0.0;
                 self.attacktimer = 0.0;
