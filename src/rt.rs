@@ -1247,6 +1247,14 @@ impl Game {
         sp.mask_at(fi, mx, my)
     }
 
+    /// Does instance `i` (e.g. the running `me`) cover world point (px, py)? Uses its real collision mask.
+    pub fn point_in_inst(&self, i: &Inst, px: f64, py: f64) -> bool {
+        match self.bbox(i) {
+            Some(bb) => px >= bb[0] && px <= bb[2] + 1.0 && py >= bb[1] && py <= bb[3] + 1.0 && self.covers(i, i.x, i.y, px, py, &bb),
+            None => false,
+        }
+    }
+
     /// Collision between `a` placed at (ax, ay) and instance `b`.
     pub fn collide(&self, a: &Inst, ax: f64, ay: f64, b: &Inst) -> bool {
         let (Some(ba), Some(bb)) = (self.bbox_at(a, ax, ay), self.bbox(b)) else { return false };

@@ -154,6 +154,8 @@ pub struct Gfx {
     /// camera offset (view x/y) applied when drawing to the application surface
     pub view_x: f64,
     pub view_y: f64,
+    /// last mode passed to gpu_set_blendmode (for gpu_get_blendmode)
+    pub blendmode: i32,
 }
 
 const VS: &str = r#"#version 300 es
@@ -262,6 +264,7 @@ impl Gfx {
             canvas_h: canvas.height(),
             view_x: 0.0,
             view_y: 0.0,
+            blendmode: 0,
         };
         g.white_tex = g.add_texture_rgba(1, 1, &[255, 255, 255, 255]);
         g.apply_state(true);
@@ -362,7 +365,9 @@ impl Gfx {
         self.verts.clear();
     }
 
+    pub fn gpu_get_blendmode(&self) -> i32 { self.blendmode }
     pub fn gpu_set_blendmode(&mut self, mode: i32) {
+        self.blendmode = mode;
         let b = match mode {
             bm::ADD => [bm::SRC_ALPHA, bm::ONE, bm::SRC_ALPHA, bm::ONE],
             bm::MAX => [bm::SRC_ALPHA, bm::INV_SRC_COLOUR, bm::SRC_ALPHA, bm::INV_SRC_COLOUR],
