@@ -1440,9 +1440,13 @@ impl Game {
                 s.inst.yprevious = s.inst.y;
             }
         }
-        for &i in &order {
+        // GameMaker iterates the live instance list: instances created earlier in a pass also get that event.
+        let mut i = 0;
+        while i < self.slots.len() {
             self.run_on(i, &mut |s, g| s.obj.begin_step(&mut s.inst, g));
+            i += 1;
         }
+        let order = self.snapshot();
         for &i in &order {
             for a in 0..12 {
                 let fire = match self.slots[i].as_mut() {
@@ -1462,10 +1466,13 @@ impl Game {
                 }
             }
         }
-        for &i in &order {
+        let mut i = 0;
+        while i < self.slots.len() {
             self.run_on(i, &mut |s, g| s.obj.step(&mut s.inst, g));
+            i += 1;
         }
         // motion + animation
+        let order = self.snapshot();
         for &i in &order {
             let mut anim_end = false;
             if let Some(s) = self.slots[i].as_mut() {
@@ -1508,8 +1515,10 @@ impl Game {
         if let Some(h) = self.collision_hook {
             h(self);
         }
-        for &i in &order {
+        let mut i = 0;
+        while i < self.slots.len() {
             self.run_on(i, &mut |s, g| s.obj.end_step(&mut s.inst, g));
+            i += 1;
         }
     }
 
