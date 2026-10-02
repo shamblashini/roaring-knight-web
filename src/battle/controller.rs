@@ -18,7 +18,7 @@ use crate::gfx::{merge_color, Color, C_AQUA, C_BLACK, C_BLUE, C_DKGRAY, C_FUCHSI
 use crate::gm::{ceil, floor, PI};
 use crate::input::Key;
 use crate::obj_vars;
-use crate::rt::{Game, HAlign, Id, Inst, Object, NOONE};
+use crate::rt::{Game, Id, Inst, Object, NOONE};
 
 /// GML array index from a (possibly negative) number.
 #[inline]
