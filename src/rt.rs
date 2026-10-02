@@ -185,6 +185,8 @@ impl Inst {
             "vspeed" => self.vspeed,
             "visible" => self.visible as i32 as f64,
             "image_blend" => self.image_blend as f64,
+            "sprite_index" => self.sprite_index as f64,
+            "mask_index" => self.mask_index as f64,
             _ => return None,
         })
     }
@@ -196,6 +198,8 @@ impl Inst {
             "vspeed" => self.set_vspeed(v),
             "visible" => self.visible = v >= 0.5,
             "image_blend" => self.image_blend = v as Color,
+            "sprite_index" => self.sprite_index = v as Spr,
+            "mask_index" => self.mask_index = v as Spr,
             _ => return false,
         }
         true
