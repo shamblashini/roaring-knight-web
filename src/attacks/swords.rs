@@ -60,11 +60,13 @@ fn gt_miny(g: &mut Game) -> f64 {
 /// scr_armorcheck_equipped_party(armor): how many party members wear `armor`.
 // TODO(battle): Glob has no global.chararmor1/chararmor2; with no armor data this counts 0
 // (i.e. the graze factors stay 1, as with no graze-boosting armor equipped).
-fn scr_armorcheck_equipped_party(g: &Game, _armor: f64) -> f64 {
+fn scr_armorcheck_equipped_party(g: &Game, armor: f64) -> f64 {
     let mut total = 0.0;
     for wi in 0..3 {
-        if g.glob.char[wi] != 0 {
-            total += 0.0; // scr_armorcheck_equipped(global.char[wi], armor)
+        let c = g.glob.char[wi];
+        if c != 0 {
+            // scr_armorcheck_equipped(char, armor): count of matching armor slots
+            total += (g.glob.chararmor1[c] == armor) as i32 as f64 + (g.glob.chararmor2[c] == armor) as i32 as f64;
         }
     }
     total
