@@ -1,0 +1,159 @@
+//! The Roaring Knight battle (DELTARUNE Chapter 3) rewritten in Rust for the web.
+
+pub mod assets;
+pub mod audio;
+pub mod battle;
+pub mod gfx;
+pub mod gm;
+pub mod input;
+pub mod objdata;
+pub mod rt;
+pub mod attacks;
+
+use std::cell::RefCell;
+use std::rc::Rc;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+
+pub fn log(s: &str) { web_sys::console::log_1(&JsValue::from_str(s)); }
+
+/// Top-level app state machine.
+pub struct App {
+    pub game: rt::Game,
+    pub scene: battle::Scene,
+    acc: f64,
+    last: f64,
+}
+
+impl App {
+    fn tick(&mut self) {
+        let g = &mut self.game;
+        g.input.tick();
+        if g.input.pressed(input::Key::Debug) {
+            g.show_hitboxes = !g.show_hitboxes;
+        }
+        battle::scene_update(&mut self.scene, g);
+        g.step();
+        g.gfx.begin_frame();
+        g.gfx.draw_clear_alpha(0, 1.0);
+        battle::scene_draw_under(&mut self.scene, g);
+        g.draw();
+        battle::scene_draw_over(&mut self.scene, g);
+        g.gfx.flush();
+        g.purge();
+    }
+
+    fn frame(&mut self, now: f64) {
+        if self.last == 0.0 {
+            self.last = now;
+        }
+        let dt = (now - self.last).min(250.0);
+        self.last = now;
+        self.acc += dt;
+        let step = 1000.0 / 30.0;
+        let mut n = 0;
+        while self.acc >= step && n < 4 {
+            self.acc -= step;
+            self.tick();
+            n += 1;
+        }
+        if self.acc > step * 4.0 {
+            self.acc = 0.0;
+        }
+        self.game.gfx.present();
+    }
+}
+
+fn window() -> web_sys::Window { web_sys::window().unwrap() }
+
+fn fit_canvas(canvas: &web_sys::HtmlCanvasElement) -> (u32, u32) {
+    let w = window();
+    let dpr = w.device_pixel_ratio();
+    let cw = w.inner_width().unwrap().as_f64().unwrap();
+    let ch = w.inner_height().unwrap().as_f64().unwrap();
+    let pw = (cw * dpr) as u32;
+    let ph = (ch * dpr) as u32;
+    canvas.set_width(pw);
+    canvas.set_height(ph);
+    (pw, ph)
+}
+
+#[wasm_bindgen(start)]
+pub async fn start() -> Result<(), JsValue> {
+    std::panic::set_hook(Box::new(|info| {
+        log(&format!("panic: {info}"));
+    }));
+    let doc = window().document().unwrap();
+    let canvas: web_sys::HtmlCanvasElement = doc.get_element_by_id("screen").unwrap().dyn_into()?;
+    fit_canvas(&canvas);
+    let mut gfx = gfx::Gfx::new(&canvas);
+    let assets = assets::Assets::load(&mut gfx, "assets").await?;
+    let mut audio = audio::Audio::new();
+    for (name, s) in &assets.sounds {
+        audio.load(name, &format!("assets/{}", s.file), s.vol);
+    }
+    audio.load("mus_knight", "assets/mus/knight.ogg", 1.0);
+    let seed = js_sys::Date::now() as u64;
+    let mut game = rt::Game::new(gfx, audio, assets, seed);
+    game.collision_hook = Some(battle::collision_pass);
+    let scene = battle::Scene::new(&mut game);
+    if let Some(el) = doc.get_element_by_id("loading") {
+        el.remove();
+    }
+    let app = Rc::new(RefCell::new(App { game, scene, acc: 0.0, last: 0.0 }));
+
+    // keyboard
+    {
+        let a = app.clone();
+        let kd = Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(move |e: web_sys::KeyboardEvent| {
+            let code = e.code();
+            if let Some(k) = input::map_key(&code) {
+                e.prevent_default();
+                let mut app = a.borrow_mut();
+                app.game.audio.resume();
+                app.game.input.key_event(k, true);
+            } else if code == "F4" || code == "KeyF" {
+                let d = window().document().unwrap();
+                if d.fullscreen_element().is_some() {
+                    d.exit_fullscreen();
+                } else if let Some(el) = d.document_element() {
+                    let _ = el.request_fullscreen();
+                }
+            }
+        });
+        window().add_event_listener_with_callback("keydown", kd.as_ref().unchecked_ref())?;
+        kd.forget();
+        let a = app.clone();
+        let ku = Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(move |e: web_sys::KeyboardEvent| {
+            if let Some(k) = input::map_key(&e.code()) {
+                e.prevent_default();
+                a.borrow_mut().game.input.key_event(k, false);
+            }
+        });
+        window().add_event_listener_with_callback("keyup", ku.as_ref().unchecked_ref())?;
+        ku.forget();
+        let a = app.clone();
+        let blur = Closure::<dyn FnMut()>::new(move || a.borrow_mut().game.input.clear());
+        window().add_event_listener_with_callback("blur", blur.as_ref().unchecked_ref())?;
+        blur.forget();
+        let a = app.clone();
+        let c2 = canvas.clone();
+        let rs = Closure::<dyn FnMut()>::new(move || {
+            let (w, h) = fit_canvas(&c2);
+            a.borrow_mut().game.gfx.resize_canvas(w, h);
+        });
+        window().add_event_listener_with_callback("resize", rs.as_ref().unchecked_ref())?;
+        rs.forget();
+    }
+
+    // animation loop
+    let f: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>> = Rc::new(RefCell::new(None));
+    let g2 = f.clone();
+    let a = app.clone();
+    *g2.borrow_mut() = Some(Closure::new(move |now: f64| {
+        a.borrow_mut().frame(now);
+        window().request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref()).unwrap();
+    }));
+    window().request_animation_frame(g2.borrow().as_ref().unwrap().as_ref().unchecked_ref())?;
+    Ok(())
+}

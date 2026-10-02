@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Roaring Knight</title>
+<link data-trunk rel="rust" data-wasm-opt="z" />
+<link data-trunk rel="copy-dir" href="assets" />
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #fff;
+             font: 16px monospace; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<div id="loading">LOADING...</div>
+</body>
+</html>

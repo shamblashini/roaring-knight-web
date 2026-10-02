@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "knight",
+      "runtimeExecutable": "trunk",
+      "runtimeArgs": ["serve", "--port", "8737", "--address", "127.0.0.1"],
+      "port": 8737
+    }
+  ]
+}
