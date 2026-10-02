@@ -78,44 +78,6 @@ fn set_depth_all(g: &mut Game, obj: &str, d: f64) {
 
 // ============================================================================ obj_returnheart (fallback)
 
-/// obj_returnheart: the SOUL flies back to Kris after the bullet phase.
-/// FALLBACK: battle::soul owns this object but its stub exposes no constructor, so it is ported here.
-/// TODO: replace with the soul module's obj_returnheart once it exists (and create obj_heartburst in alarm 0).
-#[derive(Default)]
-pub struct ReturnHeartFallback {
-    pub burst: f64,
-    pub shift: f64,
-    pub flytime: f64,
-    pub distx: f64,
-    pub disty: f64,
-    pub dist: f64,
-}
-impl Object for ReturnHeartFallback {
-    fn name(&self) -> &'static str { "obj_returnheart" }
-    fn create(&mut self, me: &mut Inst, g: &mut Game) {
-        self.burst = 0.0;
-        self.shift = 1.0;
-        me.image_alpha = 1.0;
-        self.flytime = 8.0;
-        let (kx, ky) = g.first_inst("obj_herokris").map(|k| (k.x, k.y)).unwrap_or((0.0, 0.0));
-        self.distx = kx + 10.0;
-        self.disty = ky + 40.0;
-        self.dist = crate::gm::point_distance(me.x, me.y, self.distx, self.disty);
-        me.move_towards_point(self.distx, self.disty, self.dist / self.flytime);
-        me.alarm[0] = self.flytime as i32;
-        me.image_speed = 0.0;
-    }
-    fn alarm(&mut self, n: usize, me: &mut Inst, g: &mut Game) {
-        if n == 0 {
-            me.x = self.distx;
-            me.y = self.disty;
-            // TODO: instance_create(x, y, obj_heartburst) (battle::soul)
-            g.destroy_self(me);
-        }
-    }
-    obj_vars!(burst, shift);
-}
-
 // ============================================================================ obj_battlecontroller
 
 /// obj_battlecontroller
@@ -1014,14 +976,7 @@ impl BattleController {
                         d.darken = 0.0;
                     }
                 }
-                for id in g.ids_of("obj_heart") {
-                    let pos = g.inst(id).map(|h| (h.x, h.y));
-                    if let Some((hx, hy)) = pos {
-                        // TODO: use the soul module's obj_returnheart once it provides one.
-                        g.instance_create(hx, hy, Box::new(ReturnHeartFallback::default()));
-                        g.destroy(id);
-                    }
-                }
+                crate::battle::soul::spawn_returnheart(g);
                 self.reset = 1.0;
                 if self.noreturn == 0.0 {
                     me.alarm[2] = 15;
