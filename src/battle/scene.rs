@@ -39,6 +39,17 @@ fn reset_world(g: &mut Game) {
 fn start(s: &mut Scene, g: &mut Game) {
     reset_world(g);
     g.glob.set_ex("knight_attempts", s.attempts);
+    // debug: ?attack=N&diff=D forces the Knight's attack every turn
+    if let Some(q) = web_sys::window().and_then(|w| w.location().search().ok()) {
+        if let Ok(p) = web_sys::UrlSearchParams::new_with_str(&q) {
+            if let Some(a) = p.get("attack").and_then(|v| v.parse::<f64>().ok()) {
+                g.glob.set_ex("debug_attack", a);
+            }
+            if let Some(d) = p.get("diff").and_then(|v| v.parse::<f64>().ok()) {
+                g.glob.set_ex("debug_diff", d);
+            }
+        }
+    }
     crate::battle::controller::start_battle(g);
     s.phase = Phase::Battle;
     s.timer = 0.0;

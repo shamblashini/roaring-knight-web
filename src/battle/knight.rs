@@ -471,7 +471,15 @@ impl Object for KnightEnemy {
     // ------------------------------------------------------------------ event_user
     fn user(&mut self, n: usize, me: &mut Inst, g: &mut Game) {
         match n {
-            0 => self.choose_attack(),
+            0 => {
+                self.choose_attack();
+                // debug override (like the game's scr_attack_override): ?attack=<myattackchoice>&diff=<difficulty>
+                let ov = g.glob.ex("debug_attack");
+                if ov != 0.0 {
+                    self.myattackchoice = ov;
+                    self.difficulty = g.glob.ex("debug_diff");
+                }
+            }
             2 => self.aoe_damage(me, g),
             3 => self.battle_end_flags(g),
             // Other_14: exit

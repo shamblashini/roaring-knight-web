@@ -1588,6 +1588,23 @@ impl Game {
         }
     }
 
+    /// Debug: one line per live instance.
+    pub fn debug_dump(&self) -> String {
+        let mut out = String::new();
+        for sl in self.slots.iter().flatten() {
+            let i = &sl.inst;
+            if i.destroyed {
+                continue;
+            }
+            out += &format!(
+                "{} {} ({:.1},{:.1}) d={} spr={} idx={:.2} a={:.2} vis={} xs={:.2}\n",
+                i.id, i.object, i.x, i.y, i.depth, crate::assets::sprite_name(i.sprite_index), i.image_index, i.image_alpha, i.visible, i.image_xscale
+            );
+        }
+        out += &format!("mnfight={} myfight={} bmenuno={} turntimer={} inv={} knighthp={} hp={:?} tp={}\n", self.glob.mnfight, self.glob.myfight, self.glob.bmenuno, self.glob.turntimer, self.glob.inv, self.glob.monsterhp[0], &self.glob.hp[1..4], self.glob.tension);
+        out
+    }
+
     fn draw_hitboxes(&mut self) {
         let ids: Vec<Id> = self.slots.iter().flatten().filter(|s| !s.inst.destroyed).map(|s| s.inst.id).collect();
         for id in ids {

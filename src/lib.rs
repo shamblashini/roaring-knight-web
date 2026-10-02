@@ -17,6 +17,16 @@ use wasm_bindgen::JsCast;
 
 pub fn log(s: &str) { web_sys::console::log_1(&JsValue::from_str(s)); }
 
+thread_local! {
+    static APP: std::cell::RefCell<Option<Rc<RefCell<App>>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Debug hook for the browser console: `wasm_bindgen.debug_dump()` / window.rkDump().
+#[wasm_bindgen]
+pub fn debug_dump() -> String {
+    APP.with(|a| a.borrow().as_ref().map(|app| app.borrow().game.debug_dump()).unwrap_or_default())
+}
+
 /// Top-level app state machine.
 pub struct App {
     pub game: rt::Game,
@@ -101,6 +111,7 @@ pub async fn start() -> Result<(), JsValue> {
         el.remove();
     }
     let app = Rc::new(RefCell::new(App { game, scene, acc: 0.0, last: 0.0 }));
+    APP.with(|a| *a.borrow_mut() = Some(app.clone()));
 
     // keyboard
     {
