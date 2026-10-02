@@ -43,3 +43,16 @@ trunk serve --release     # http://127.0.0.1:8080
 * `src/attacks/` — the Knight's attack patterns, one module per bullet type
 * `docs/PORTING.md`, `docs/BATTLE.md` — conventions used for the port
 * `tools/` — extraction (UndertaleModTool scripts), atlas packer, object table generator
+
+## Debug URL flags
+
+| flag | effect |
+|---|---|
+| `?attack=N&diff=D` | force the Knight's `myattackchoice` every turn (1 Stars, 2 Flurry, 5 rotating slash, 9 the Roaring, 11/14/17 tracking swords, 13 sword tunnel, 15 vortex, 16 slash + swords) |
+| `?god=1` | party HP refilled every frame |
+| `?khp=N` | start the Knight at N HP (≤ 5840 triggers phase 4 after the next turn) |
+| `?postroar=1` | act as if the Roaring already happened: the next hit on the Knight ends the battle |
+| `?slow=N` | run N times slower |
+| `?mute=1` | no audio |
+
+In the browser console, `wasmBindings.debug_dump()` lists every live instance plus the battle state.
