@@ -51,6 +51,9 @@ fn start(s: &mut Scene, g: &mut Game) {
             if p.get("god").is_some() {
                 g.glob.set_ex("debug_god", 1.0);
             }
+            if p.get("postroar").is_some() {
+                g.glob.set_ex("debug_postroar", 1.0);
+            }
             if let Some(h) = p.get("khp").and_then(|v| v.parse::<f64>().ok()) {
                 g.glob.set_ex("debug_khp", h);
             }
@@ -59,6 +62,14 @@ fn start(s: &mut Scene, g: &mut Game) {
     crate::battle::controller::start_battle(g);
     if g.glob.ex("debug_khp") > 0.0 {
         g.glob.monsterhp[0] = g.glob.ex("debug_khp");
+    }
+    if g.glob.ex("debug_postroar") != 0.0 {
+        // as if the Roaring already happened: the next hit on the Knight ends the battle
+        g.glob.monsterhp[0] = g.glob.monsterhp[0].min(5800.0);
+        if let Some((_, k)) = g.get_first::<crate::battle::KnightEnemy>("obj_knight_enemy") {
+            k.haveusedroaring = true;
+            k.phase = 3.0;
+        }
     }
     s.phase = Phase::Battle;
     s.timer = 0.0;
