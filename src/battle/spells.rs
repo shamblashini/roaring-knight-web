@@ -1611,6 +1611,9 @@ pub fn battle_item_select_untargeted(g: &mut Game, tempitem: &mut [[f64; 3]; 13]
     let loc = g.glob.bmenucoord[4][ct] as usize;
     let it = tempitem[loc][ct];
     let info = scr_iteminfo(it);
+    if info.itemtarget != 0.0 && info.itemtarget != 2.0 {
+        return;
+    }
     let mut tensionhealed = false;
     if it == 27.0 {
         crate::battle::scr_tensionheal(g, 80.0);
