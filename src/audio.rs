@@ -38,6 +38,9 @@ impl Audio {
     }
 
     pub fn resume(&self) {
+        if self.master == 0.0 {
+            return;
+        }
         if let Some(c) = &self.ctx {
             let _ = c.resume();
         }

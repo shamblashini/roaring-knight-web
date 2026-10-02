@@ -48,9 +48,18 @@ fn start(s: &mut Scene, g: &mut Game) {
             if let Some(d) = p.get("diff").and_then(|v| v.parse::<f64>().ok()) {
                 g.glob.set_ex("debug_diff", d);
             }
+            if p.get("god").is_some() {
+                g.glob.set_ex("debug_god", 1.0);
+            }
+            if let Some(h) = p.get("khp").and_then(|v| v.parse::<f64>().ok()) {
+                g.glob.set_ex("debug_khp", h);
+            }
         }
     }
     crate::battle::controller::start_battle(g);
+    if g.glob.ex("debug_khp") > 0.0 {
+        g.glob.monsterhp[0] = g.glob.ex("debug_khp");
+    }
     s.phase = Phase::Battle;
     s.timer = 0.0;
 }
@@ -74,6 +83,11 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
             }
         }
         Phase::Battle => {
+            if g.glob.ex("debug_god") != 0.0 {
+                for c in 1..4 {
+                    g.glob.hp[c] = g.glob.maxhp[c];
+                }
+            }
             let outcome = g.glob.ex("battle_outcome") as i32;
             if outcome != 0 {
                 if s.outcome == 0 {

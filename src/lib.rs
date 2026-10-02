@@ -33,6 +33,8 @@ pub struct App {
     pub scene: battle::Scene,
     acc: f64,
     last: f64,
+    /// debug: ?slow=N runs the game N times slower
+    slow: f64,
 }
 
 impl App {
@@ -60,7 +62,7 @@ impl App {
         let dt = (now - self.last).min(250.0);
         self.last = now;
         self.acc += dt;
-        let step = 1000.0 / 30.0;
+        let step = 1000.0 / 30.0 * self.slow;
         let mut n = 0;
         while self.acc >= step && n < 4 {
             self.acc -= step;
@@ -104,13 +106,30 @@ pub async fn start() -> Result<(), JsValue> {
     }
     audio.load("mus_knight", "assets/mus/knight.ogg", 1.0);
     let seed = js_sys::Date::now() as u64;
+    // ?mute=1: silence all audio (used for automated testing)
+    let params = web_sys::window()
+        .and_then(|w| w.location().search().ok())
+        .and_then(|q| web_sys::UrlSearchParams::new_with_str(&q).ok());
+    if params.as_ref().and_then(|p| p.get("mute")).is_some() {
+        audio.master = 0.0;
+        if let Some(c) = &audio.ctx {
+            let _ = c.suspend();
+        }
+    }
     let mut game = rt::Game::new(gfx, audio, assets, seed);
     game.collision_hook = Some(battle::collision_pass);
     let scene = battle::Scene::new(&mut game);
+    let slow = web_sys::window()
+        .and_then(|w| w.location().search().ok())
+        .and_then(|q| web_sys::UrlSearchParams::new_with_str(&q).ok())
+        .and_then(|p| p.get("slow"))
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(1.0)
+        .max(1.0);
     if let Some(el) = doc.get_element_by_id("loading") {
         el.remove();
     }
-    let app = Rc::new(RefCell::new(App { game, scene, acc: 0.0, last: 0.0 }));
+    let app = Rc::new(RefCell::new(App { game, scene, acc: 0.0, last: 0.0, slow }));
     APP.with(|a| *a.borrow_mut() = Some(app.clone()));
 
     // keyboard

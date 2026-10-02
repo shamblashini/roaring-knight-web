@@ -2,14 +2,14 @@
 //!
 //! obj_roaringknight_boxsplitter_attack spawns obj_roaringknight_splitslash lines across the box; when a
 //! slash lands it creates/reuses obj_knight_split_growtangle, which splits the bullet board in two halves,
-//! pushes the SOUL with its half and fires obj_roaringknight_fountain_bullet rows from the crack.
+//! pushes the SOUL with its half and fires obj_roaringknight_split_bullet rows from the crack.
 //!
 //! Also ported (not reachable from Flurry, but requested): obj_roaringknight_slash, obj_fake_gt,
 //! obj_knight_warp, and the legacy user events 2/3 of obj_knight_split_growtangle.
 //!
 //! Decompiler note: several GML object references were decompiled as raw object indices:
 //! `knight = 345` (obj_knight_enemy), `growtangle = 1517` (obj_growtangle), `_splitter = 182`
-//! (obj_knight_split_growtangle), `split_bullet = 793` (obj_roaringknight_fountain_bullet).
+//! (obj_knight_split_growtangle), `split_bullet = 793` (obj_roaringknight_split_bullet).
 
 use crate::assets::{spr, Spr, NO_SPR};
 use crate::battle::{self, DbCtrl, Growtangle, Heart, KnightEnemy, RegVars};
@@ -1122,7 +1122,7 @@ impl Object for SplitGrowtangle {
             self.marker[k] = m;
         }
         // remaining fields: see Default (split=false, open_time=45, max_distance=70, split_wait=5,
-        // split_hold=30, split_bullet=obj_roaringknight_fountain_bullet, bullet_count=13, bullet_range=144, ...)
+        // split_hold=30, split_bullet=obj_roaringknight_split_bullet, bullet_count=13, bullet_range=144, ...)
     }
 
     fn step(&mut self, me: &mut Inst, g: &mut Game) {
@@ -1493,7 +1493,7 @@ impl SplitGrowtangle {
     /// Step_0, con == 1 && timer >= split_wait + split_delay: the box breaks open and fires the bullets.
     fn split_open(&mut self, me: &mut Inst, g: &mut Game) {
         if self.disable_on_close {
-            for b in g.ids_of("obj_roaringknight_fountain_bullet") {
+            for b in g.ids_of("obj_roaringknight_split_bullet") {
                 if let Some(b) = g.inst_mut(b) {
                     b.active = 0.0;
                 }
@@ -1557,7 +1557,7 @@ impl SplitGrowtangle {
             }
             let speed = inverselerp(-1.0, 1.0, sign(-weight));
             let (bx, by) = if truthy(self.diagonal) { (me.x, me.y) } else { (xstart, ystart) };
-            let b = g.instance_create(bx, by, Box::new(FountainBullet::default()));
+            let b = g.instance_create(bx, by, Box::new(SplitBullet::default()));
             let topspeed = if speed == 1.0 { 4.0 } else { 2.0 };
             let top_speed = topspeed + g.random_range(-0.2, 0.2);
             if truthy(self.diagonal) {
@@ -1568,7 +1568,7 @@ impl SplitGrowtangle {
                 direction = if flip { 90.0 } else { -90.0 };
             }
             let depth = me.depth + 1.0;
-            if let Some((bi, bo)) = g.get::<FountainBullet>(b) {
+            if let Some((bi, bo)) = g.get::<SplitBullet>(b) {
                 bi.friction = if speed == 1.0 { -0.2 } else { -0.05 };
                 bo.top_speed = top_speed;
                 bi.image_speed = 0.5;
@@ -1815,6 +1815,74 @@ impl Object for SplitGrowtangleEffect {
     }
 
     obj_vars!(timer, angle, xoffset, yoffset);
+}
+
+// ============================================================================ obj_roaringknight_split_bullet
+
+/// obj_roaringknight_split_bullet (parent obj_regularbullet): the "teeth" fired from the split box (object 793).
+#[derive(Default)]
+pub struct SplitBullet {
+    pub rb: RegVars,
+    pub speed_mult: f64,
+    pub top_speed: f64,
+    /// (sic) the game sets `destroy_on_hit`, not `destroyonhit`
+    pub destroy_on_hit: bool,
+    pub turn_timer: f64,
+    pub turn_dir: f64,
+    pub turn_start: bool,
+    pub distance: f64,
+    pub anim_timer: f64,
+}
+
+impl Object for SplitBullet {
+    fn name(&self) -> &'static str { "obj_roaringknight_split_bullet" }
+
+    fn create(&mut self, me: &mut Inst, g: &mut Game) {
+        battle::regularbullet_create(me, &mut self.rb, g);
+        me.element = 5.0;
+        self.speed_mult = 0.0;
+        self.top_speed = 0.0;
+        me.image_xscale = 1.0;
+        me.image_yscale = 1.0;
+        me.active = 0.0;
+        self.destroy_on_hit = false;
+        me.grazepoints = 0.0;
+        self.turn_timer = 0.0;
+        self.turn_dir = 0.0;
+        me.grazed = 1.0;
+        self.turn_start = false;
+        self.distance = 0.0;
+        self.anim_timer = 0.0;
+        me.image_speed = 0.0;
+    }
+
+    fn step(&mut self, me: &mut Inst, g: &mut Game) {
+        battle::regularbullet_step(me, &mut self.rb, g);
+        me.grazepoints = 3.0;
+        if self.speed_mult < 1.0 {
+            self.speed_mult += 0.2;
+            if me.active == 0.0 && self.speed_mult >= 0.1 {
+                me.active = 1.0;
+            }
+            me.set_speed(self.speed_mult * self.top_speed);
+        }
+        me.image_xscale = 1.0;
+        me.image_yscale = 1.0;
+        self.distance += me.speed();
+    }
+
+    fn draw(&mut self, me: &mut Inst, g: &mut Game) {
+        let n = g.sprite_get_number(me.sprite_index);
+        me.image_index = (scr_ease_in(self.anim_timer, 2) * n).floor();
+        if self.anim_timer < 1.0 {
+            self.anim_timer += 0.1;
+        }
+        let xs = me.image_xscale + g.random_range(-0.1, 0.1);
+        let ys = me.image_yscale + g.random_range(-0.1, 0.1);
+        g.draw_sprite_ext(me.sprite_index, me.image_index, me.x, me.y, xs, ys, me.image_angle, me.image_blend, me.image_alpha);
+    }
+
+    obj_vars!(speed_mult, top_speed, turn_timer, turn_dir, distance, anim_timer);
 }
 
 // ============================================================================ obj_roaringknight_fountain_bullet
