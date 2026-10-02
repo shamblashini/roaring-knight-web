@@ -817,6 +817,12 @@ impl BattleController {
                 if let Some((_, k)) = g.get::<KnightEnemy>(id) {
                     k.myself = i;
                 }
+                // obj_knight_enemy Create_0 line 37: `with (obj_battlecontroller) cantspare[0] = 1;`
+                // Mirrored here: the controller's slot is checked out during its own Create, so the
+                // knight's write can't reach it in this runtime.
+                if g.glob.monstertype[i] == 104.0 {
+                    self.cantspare[0] = 1.0;
+                }
             }
         }
         g.glob.charturn = 0.0;
