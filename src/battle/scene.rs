@@ -38,7 +38,7 @@ fn reset_world(g: &mut Game) {
 
 fn start(s: &mut Scene, g: &mut Game) {
     reset_world(g);
-    g.glob.set_ex("knight_total_attempts", s.attempts);
+    g.glob.set_ex("knight_attempts", s.attempts);
     crate::battle::controller::start_battle(g);
     s.phase = Phase::Battle;
     s.timer = 0.0;
