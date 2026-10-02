@@ -21,7 +21,7 @@ python3 tools/pack_assets.py   # packs the sprites/sounds the code references in
 trunk serve --release     # http://127.0.0.1:8080
 ```
 
-`trunk build --release` produces a static site in `dist/`.
+`trunk build --release --dist release` produces a static site in `release/` (serve it with any static file server).
 
 ## Controls
 
