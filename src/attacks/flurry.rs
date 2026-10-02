@@ -1449,7 +1449,7 @@ impl Object for SplitGrowtangle {
                     g.gfx.surface_reset_target();
                     // NOTE: GML passes removeback=true (bottom-left pixel colour, forced to black above,
                     // becomes transparent); the runtime's sprite_create_from_surface has no removeback.
-                    sprite = g.sprite_create_from_surface(self.source_surf, 0.0, 0.0, 170.0, 170.0, 85.0, 85.0);
+                    sprite = g.sprite_create_from_surface_ext(self.source_surf, 0.0, 0.0, 170.0, 170.0, true, 85.0, 85.0);
                 }
                 if let Some((bi, bo)) = g.get::<Growtangle>(gtid) {
                     bi.visible = true;

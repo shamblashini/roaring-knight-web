@@ -950,6 +950,10 @@ impl Game {
 
     /// sprite_create_from_surface(surf, x, y, w, h, removeback, smooth, xorig, yorig)
     pub fn sprite_create_from_surface(&mut self, surf: i32, x: f64, y: f64, w: f64, h: f64, xorig: f64, yorig: f64) -> Spr {
+        self.sprite_create_from_surface_ext(surf, x, y, w, h, false, xorig, yorig)
+    }
+    /// sprite_create_from_surface with `removeback`: pixels matching the bottom-left pixel's colour become transparent.
+    pub fn sprite_create_from_surface_ext(&mut self, surf: i32, x: f64, y: f64, w: f64, h: f64, removeback: bool, xorig: f64, yorig: f64) -> Spr {
         let ns = self.gfx.surface_create(w as i32, h as i32);
         self.gfx.surface_set_target(ns);
         self.gfx.draw_clear_alpha(0, 0.0);
@@ -957,9 +961,31 @@ impl Game {
         self.gfx.draw_surface_part_ext(surf, x, y, w, h, 0.0, 0.0, 1.0, 1.0, C_WHITE, 1.0);
         self.gfx.gpu_set_blendenable(true);
         self.gfx.surface_reset_target();
-        let tex = self.gfx.surface_tex(ns).unwrap();
-        // keep the texture alive: detach from the surface table
-        self.gfx.surfaces[ns as usize].alive = false;
+        let tex = if removeback {
+            let (iw, ih) = (w.max(1.0) as i32, h.max(1.0) as i32);
+            let mut px = vec![0u8; (iw * ih * 4) as usize];
+            self.gfx.flush();
+            let gl = &self.gfx.gl;
+            gl.bind_framebuffer(web_sys::WebGl2RenderingContext::FRAMEBUFFER, Some(&self.gfx.surfaces[ns as usize].fb));
+            let _ = gl.read_pixels_with_opt_u8_array(0, 0, iw, ih, web_sys::WebGl2RenderingContext::RGBA, web_sys::WebGl2RenderingContext::UNSIGNED_BYTE, Some(&mut px));
+            // FBO row 0 is the surface's top row (y-up projection), so the bottom-left pixel is the last row
+            let bl = ((ih - 1) * iw * 4) as usize;
+            let key = [px[bl], px[bl + 1], px[bl + 2]];
+            for p in px.chunks_mut(4) {
+                if p[0] == key[0] && p[1] == key[1] && p[2] == key[2] {
+                    p[3] = 0;
+                }
+            }
+            self.gfx.surface_free(ns);
+            self.gfx.surface_set_target(self.gfx.app_surface);
+            self.gfx.surface_reset_target();
+            self.gfx.add_texture_rgba(iw as u32, ih as u32, &px)
+        } else {
+            let t = self.gfx.surface_tex(ns).unwrap();
+            // keep the texture alive: detach from the surface table
+            self.gfx.surfaces[ns as usize].alive = false;
+            t
+        };
         let id = self.assets.sprites.len() as Spr;
         self.assets.sprites.push(Sprite {
             name: format!("__dyn{id}"),
