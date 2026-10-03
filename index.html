@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Roaring Knight</title>
+
+<script type="module">
+import init, * as bindings from '/roaring-knight-web/roaring_knight-2df026e95db45624.js';
+const wasm = await init({ module_or_path: '/roaring-knight-web/roaring_knight-2df026e95db45624_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #disclaimer { position: fixed; left: 0; right: 0; bottom: 8px; display: none; text-align: center;
+                color: #8a8a8a; font: 12px/1.45 monospace; padding: 0 16px; pointer-events: none; }
+  #disclaimer a { color: #b5b5b5; pointer-events: auto; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #fff;
+             font: 16px monospace; letter-spacing: 2px; }
+</style>
+<link rel="modulepreload" href="/roaring-knight-web/roaring_knight-2df026e95db45624.js" crossorigin="anonymous" integrity="sha384-CFIfUBtUB961A9P0Zr5roEzS+XxxKroJr2UbBnsv1Cde5tvYnO3QL2KnUjAJLKdT"><link rel="preload" href="/roaring-knight-web/roaring_knight-2df026e95db45624_bg.wasm" crossorigin="anonymous" integrity="sha384-u6PNvgvyyrfP2nWHfK1w7DMQjqr5IEBcuPIXkTSx3pF8D+ceLt12X9avse3fRx2g" as="fetch" type="application/wasm"></head>
+<body>
+<canvas id="screen"></canvas>
+<div id="loading">LOADING...</div>
+<div id="disclaimer">
+  Fan-made, non-commercial. DELTARUNE and all of its characters, sprites, music and sounds belong to Toby Fox.<br>
+  This project is not affiliated with or endorsed by Toby Fox.
+  Takedown requests: <a href="https://github.com/shamblashini/roaring-knight-web/issues" target="_blank" rel="noopener">github.com/shamblashini/roaring-knight-web/issues</a>
+</div>
+</body>
+</html>
