@@ -752,7 +752,10 @@ impl Gfx {
         gl.clear_color(0.0, 0.0, 0.0, 1.0);
         gl.clear(GL::COLOR_BUFFER_BIT);
         let (cw, ch) = (self.canvas_w as f64, self.canvas_h as f64);
-        let scale = (cw / 640.0).min(ch / 480.0);
+        // integer scaling keeps every pixel row/column (nearest-neighbour at 1.25x drops rows);
+        // fall back to fractional scaling only when the window is smaller than 640x480
+        let fit = (cw / 640.0).min(ch / 480.0);
+        let scale = if fit >= 1.0 { fit.floor() } else { fit };
         let (w, h) = (640.0 * scale, 480.0 * scale);
         let x = ((cw - w) / 2.0).floor();
         let y = ((ch - h) / 2.0).floor();

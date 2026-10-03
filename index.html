@@ -9,6 +9,9 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #disclaimer { position: fixed; left: 0; right: 0; bottom: 8px; display: none; text-align: center;
+                color: #8a8a8a; font: 12px/1.45 monospace; padding: 0 16px; pointer-events: none; }
+  #disclaimer a { color: #b5b5b5; pointer-events: auto; }
   #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #fff;
              font: 16px monospace; letter-spacing: 2px; }
 </style>
@@ -16,5 +19,10 @@
 <body>
 <canvas id="screen"></canvas>
 <div id="loading">LOADING...</div>
+<div id="disclaimer">
+  Fan-made, non-commercial. DELTARUNE and all of its characters, sprites, music and sounds belong to Toby Fox.<br>
+  This project is not affiliated with or endorsed by Toby Fox.
+  Takedown requests: <a href="https://github.com/shamblashini/roaring-knight-web/issues" target="_blank" rel="noopener">github.com/shamblashini/roaring-knight-web/issues</a>
+</div>
 </body>
 </html>

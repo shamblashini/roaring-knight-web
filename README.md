@@ -3,8 +3,15 @@
 A Rust/WebAssembly rewrite of the Roaring Knight battle from the end of DELTARUNE Chapter 3, ported from the
 game's own (decompiled) GameMaker code so timings, patterns and numbers match the original.
 
-The repository contains **no game assets**. They are extracted from your own installed copy of DELTARUNE and
-stay on your machine (`extract/` and `assets/` are git-ignored). Don't publish a build that includes them.
+> **Disclaimer.** This is a fan-made, non-commercial project. DELTARUNE and all of its characters, sprites,
+> music and sounds belong to Toby Fox. This project is not affiliated with or endorsed by Toby Fox.
+> For takedown requests, please [open an issue](https://github.com/shamblashini/roaring-knight-web/issues).
+
+Play it at **https://shamblashini.github.io/roaring-knight-web/**.
+
+The source (`main` branch) contains **no game assets**: to build it yourself they are extracted from your own
+installed copy of DELTARUNE (`extract/` and `assets/` are git-ignored). The hosted build on the `gh-pages`
+branch necessarily includes the extracted sprites, sounds and music, under the disclaimer above.
 
 ## Requirements
 
@@ -22,6 +29,7 @@ trunk serve --release     # http://127.0.0.1:8080
 ```
 
 `trunk build --release --dist release` produces a static site in `release/` (serve it with any static file server).
+`tools/deploy.sh` builds with the GitHub Pages path and publishes `release/` to the `gh-pages` branch.
 
 ## Controls
 

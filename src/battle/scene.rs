@@ -193,6 +193,19 @@ fn draw_flash(g: &mut Game, t: f64) {
     gx.draw_set_color(C_WHITE);
 }
 
+/// The disclaimer is an HTML element (index.html #disclaimer) so it stays legible and the link is clickable;
+/// it is only shown on the title screen.
+fn set_disclaimer_visible(visible: bool) {
+    use wasm_bindgen::JsCast;
+    if let Some(el) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id("disclaimer"))
+        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let _ = el.style().set_property("display", if visible { "block" } else { "none" });
+    }
+}
+
 fn centered(g: &mut Game, y: f64, text: &str, col: u32, scale: f64) {
     g.draw_set_halign(HAlign::Center);
     g.draw_set_valign(VAlign::Top);
@@ -202,24 +215,28 @@ fn centered(g: &mut Game, y: f64, text: &str, col: u32, scale: f64) {
 }
 
 pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
+    set_disclaimer_visible(s.phase == Phase::Title && s.title_fade <= 0.0);
     match s.phase {
         Phase::Title => {
             g.gfx.draw_set_alpha(1.0);
             let knight = crate::assets::spr("spr_roaringknight_idle");
             let bob = (s.timer / 16.0).sin() * 6.0;
-            g.draw_sprite_ext(knight, 0.0, 268.0, 96.0 + bob, 2.0, 2.0, 0.0, C_WHITE, 1.0);
+            g.draw_sprite_ext(knight, 0.0, 268.0, 70.0 + bob, 2.0, 2.0, 0.0, C_WHITE, 1.0);
             g.draw_set_font(font("fnt_mainbig"));
-            centered(g, 330.0, "THE ROARING KNIGHT", C_WHITE, 1.0);
+            centered(g, 296.0, "THE ROARING KNIGHT", C_WHITE, 1.0);
             g.draw_set_font(font("fnt_main"));
             let items = [if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" }, if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" }];
             for (i, it) in items.iter().enumerate() {
                 let col = if i == s.title_cursor { C_YELLOW } else { C_WHITE };
-                centered(g, 380.0 + i as f64 * 22.0, it, col, 1.0);
+                centered(g, 346.0 + i as f64 * 22.0, it, col, 1.0);
             }
-            centered(g, 446.0, "Z/ENTER confirm   X/SHIFT cancel   C/CTRL menu   ARROWS move   F fullscreen", C_GRAY, 0.5);
             if s.attempts > 0.0 {
-                centered(g, 462.0, &format!("ATTEMPTS: {}", s.attempts), C_GRAY, 0.5);
+                g.draw_set_font(font("fnt_small"));
+                centered(g, 326.0, &format!("ATTEMPTS: {}", s.attempts), C_GRAY, 1.0);
+                g.draw_set_font(font("fnt_main"));
             }
+            g.draw_set_font(font("fnt_main"));
+            centered(g, 400.0, "Z confirm   X cancel   C menu   F fullscreen", C_GRAY, 1.0);
             if s.title_fade > 0.0 {
                 g.gfx.draw_set_color(0);
                 g.gfx.draw_set_alpha(s.title_fade.min(1.0));
