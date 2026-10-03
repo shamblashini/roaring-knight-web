@@ -11,8 +11,10 @@ pub enum Key {
     B2,
     B3,
     Debug,
+    /// Escape: hold to quit back to the title (obj_time quit_timer)
+    Quit,
 }
-const N: usize = 8;
+const N: usize = 9;
 
 #[derive(Default)]
 pub struct Input {
@@ -35,6 +37,7 @@ pub fn map_key(code: &str) -> Option<Key> {
         "KeyX" | "ShiftLeft" | "ShiftRight" => Key::B2,
         "KeyC" | "ControlLeft" | "ControlRight" => Key::B3,
         "Backquote" => Key::Debug,
+        "Escape" => Key::Quit,
         _ => return None,
     })
 }

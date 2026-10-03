@@ -40,6 +40,7 @@ trunk serve --release     # http://127.0.0.1:8080
 | X / Shift | cancel, slow the SOUL while held |
 | C / Ctrl | menu |
 | F | fullscreen |
+| Esc (hold 1 s) | quit back to the title (like the game's own hold-to-quit) |
 | ` (backquote) | toggle hitbox overlay |
 
 ## Layout
@@ -51,6 +52,9 @@ trunk serve --release     # http://127.0.0.1:8080
 * `src/attacks/` — the Knight's attack patterns, one module per bullet type
 * `docs/PORTING.md`, `docs/BATTLE.md` — conventions used for the port
 * `tools/` — extraction (UndertaleModTool scripts), atlas packer, object table generator
+
+The title screen also has **INSTANT RETRY** (restart the battle immediately after a defeat instead of
+returning to the title; remembered in the browser) and **HITBOXES** toggles.
 
 ## Debug URL flags
 

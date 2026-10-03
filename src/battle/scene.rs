@@ -26,11 +26,37 @@ pub struct Scene {
     flash_t: f64,
     /// fade-in from black when the title is shown after a defeat
     title_fade: f64,
+    /// title option: skip the defeat flash and restart the battle right away
+    pub instant_retry: bool,
+    /// the current flash is the short instant-retry one
+    flash_quick: bool,
+    /// white overlay fading out at the start of an instantly retried battle
+    battle_fade: f64,
+    /// hold-Escape counter (obj_time quit_timer): 30 frames held = quit to the title
+    quit_timer: f64,
 }
+
+const STORAGE_KEY_INSTANT: &str = "rk_instant_retry";
+
+fn storage() -> Option<web_sys::Storage> { web_sys::window().and_then(|w| w.local_storage().ok().flatten()) }
 
 impl Scene {
     pub fn new(_g: &mut Game) -> Scene {
-        Scene { phase: Phase::Title, timer: 0.0, title_cursor: 0, outcome: 0, attempts: 0.0, loaded_wait: 0.0, flash_t: 0.0, title_fade: 0.0 }
+        let instant_retry = storage().and_then(|st| st.get_item(STORAGE_KEY_INSTANT).ok().flatten()).as_deref() == Some("1");
+        Scene {
+            phase: Phase::Title,
+            timer: 0.0,
+            title_cursor: 0,
+            outcome: 0,
+            attempts: 0.0,
+            loaded_wait: 0.0,
+            flash_t: 0.0,
+            title_fade: 0.0,
+            instant_retry,
+            flash_quick: false,
+            battle_fade: 0.0,
+            quit_timer: 0.0,
+        }
     }
 }
 
@@ -81,8 +107,43 @@ fn start(s: &mut Scene, g: &mut Game) {
     s.timer = 0.0;
 }
 
+/// Title menu entries, top to bottom.
+const MENU_START: usize = 0;
+const MENU_INSTANT: usize = 1;
+const MENU_HITBOXES: usize = 2;
+const MENU_COUNT: usize = 3;
+
+/// Back to the title screen (fading in from black).
+fn to_title(s: &mut Scene, g: &mut Game) {
+    reset_world(g);
+    s.outcome = 0;
+    s.title_cursor = MENU_START;
+    s.title_fade = 1.0;
+    s.battle_fade = 0.0;
+    s.phase = Phase::Title;
+    s.timer = 0.0;
+}
+
 pub fn scene_update(s: &mut Scene, g: &mut Game) {
     s.timer += 1.0;
+    // Hold Escape to quit (obj_time Step_1): +1 per frame held, -2 per frame released, quit at 30 (1 second).
+    if s.phase != Phase::Title {
+        if g.input.held(Key::Quit) {
+            if s.quit_timer < 0.0 {
+                s.quit_timer = 0.0;
+            }
+            s.quit_timer += 1.0;
+            if s.quit_timer >= 30.0 {
+                s.quit_timer = 0.0;
+                to_title(s, g);
+                return;
+            }
+        } else {
+            s.quit_timer -= 2.0;
+        }
+    } else {
+        s.quit_timer = 0.0;
+    }
     match s.phase {
         Phase::Title => {
             s.loaded_wait += 1.0;
@@ -91,20 +152,32 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
                 s.title_fade -= 0.05;
                 return;
             }
-            if g.input.pressed(Key::Up) || g.input.pressed(Key::Down) {
-                s.title_cursor = 1 - s.title_cursor;
+            if g.input.pressed(Key::Up) {
+                s.title_cursor = (s.title_cursor + MENU_COUNT - 1) % MENU_COUNT;
+                g.snd_play("snd_menumove");
+            }
+            if g.input.pressed(Key::Down) {
+                s.title_cursor = (s.title_cursor + 1) % MENU_COUNT;
                 g.snd_play("snd_menumove");
             }
             if g.input.pressed(Key::B1) {
                 g.snd_play("snd_select");
-                if s.title_cursor == 1 {
-                    g.show_hitboxes = !g.show_hitboxes;
-                } else {
-                    start(s, g);
+                match s.title_cursor {
+                    MENU_INSTANT => {
+                        s.instant_retry = !s.instant_retry;
+                        if let Some(st) = storage() {
+                            let _ = st.set_item(STORAGE_KEY_INSTANT, if s.instant_retry { "1" } else { "0" });
+                        }
+                    }
+                    MENU_HITBOXES => g.show_hitboxes = !g.show_hitboxes,
+                    _ => start(s, g),
                 }
             }
         }
         Phase::Battle => {
+            if s.battle_fade > 0.0 {
+                s.battle_fade -= 0.1;
+            }
             if g.glob.ex("debug_god") != 0.0 {
                 for c in 1..4 {
                     g.glob.hp[c] = g.glob.maxhp[c];
@@ -124,13 +197,25 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
                         s.timer = 0.0;
                     }
                 } else {
-                    // defeat: flash straight back to the retry screen
+                    // defeat: flash straight back to the retry screen (or, with INSTANT RETRY, into a new battle)
                     s.attempts += 1.0;
                     g.audio.stop_all();
-                    g.snd_play("snd_dtrans_lw");
+                    s.flash_quick = s.instant_retry;
+                    if !s.flash_quick {
+                        g.snd_play("snd_dtrans_lw");
+                    }
                     s.phase = Phase::Flash;
                     s.flash_t = 0.0;
                 }
+            }
+        }
+        Phase::Flash if s.flash_quick => {
+            // instant retry: a quick white-out, then a fresh battle that fades in from white
+            s.flash_t += 1.0;
+            if s.flash_t >= QUICK_FLASH {
+                s.outcome = 0;
+                start(s, g);
+                s.battle_fade = 1.0;
             }
         }
         Phase::Flash => {
@@ -166,6 +251,24 @@ const FLASH_WHITE: f64 = 25.0;
 const FLASH_CLEAR: f64 = 55.0;
 const FLASH_BLACK: f64 = 65.0;
 const FLASH_END: f64 = 110.0;
+/// instant retry: frames of white-out before the new battle starts
+const QUICK_FLASH: f64 = 8.0;
+
+fn draw_fullscreen(g: &mut Game, col: u32, alpha: f64) {
+    g.gfx.draw_set_color(col);
+    g.gfx.draw_set_alpha(alpha.clamp(0.0, 1.0));
+    g.gfx.draw_rectangle(-10.0, -10.0, 999.0, 999.0, false);
+    g.gfx.draw_set_alpha(1.0);
+    g.gfx.draw_set_color(C_WHITE);
+}
+
+/// "QUITTING..." while Escape is held (obj_time Draw_64).
+fn draw_quit_message(g: &mut Game, t: f64) {
+    if t >= 1.0 {
+        let spr = crate::assets::spr("spr_quitmessage");
+        g.draw_sprite_ext(spr, t / 7.0, 4.0, 4.0, 2.0, 2.0, 0.0, C_WHITE, t / 15.0);
+    }
+}
 
 /// The seal-style flash overlay drawn over the battle.
 fn draw_flash(g: &mut Game, t: f64) {
@@ -225,7 +328,11 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
             g.draw_set_font(font("fnt_mainbig"));
             centered(g, 296.0, "THE ROARING KNIGHT", C_WHITE, 1.0);
             g.draw_set_font(font("fnt_main"));
-            let items = [if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" }, if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" }];
+            let items = [
+                if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" },
+                if s.instant_retry { "INSTANT RETRY: ON" } else { "INSTANT RETRY: OFF" },
+                if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" },
+            ];
             for (i, it) in items.iter().enumerate() {
                 let col = if i == s.title_cursor { C_YELLOW } else { C_WHITE };
                 centered(g, 346.0 + i as f64 * 22.0, it, col, 1.0);
@@ -236,7 +343,7 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
                 g.draw_set_font(font("fnt_main"));
             }
             g.draw_set_font(font("fnt_main"));
-            centered(g, 400.0, "Z confirm   X cancel   C menu   F fullscreen", C_GRAY, 1.0);
+            centered(g, 422.0, "Z confirm   X cancel   C menu   F fullscreen   hold ESC quit", C_GRAY, 1.0);
             if s.title_fade > 0.0 {
                 g.gfx.draw_set_color(0);
                 g.gfx.draw_set_alpha(s.title_fade.min(1.0));
@@ -245,7 +352,12 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
                 g.gfx.draw_set_color(C_WHITE);
             }
         }
-        Phase::Battle => {}
+        Phase::Battle => {
+            if s.battle_fade > 0.0 {
+                draw_fullscreen(g, C_WHITE, s.battle_fade);
+            }
+        }
+        Phase::Flash if s.flash_quick => draw_fullscreen(g, C_WHITE, s.flash_t / QUICK_FLASH),
         Phase::Flash => draw_flash(g, s.flash_t),
         Phase::Outcome => {
             g.draw_set_font(font("fnt_mainbig"));
@@ -261,6 +373,9 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
                 centered(g, 400.0, "Press Z", C_WHITE, 1.0);
             }
         }
+    }
+    if s.phase != Phase::Title {
+        draw_quit_message(g, s.quit_timer);
     }
 }
 
