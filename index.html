@@ -6,8 +6,8 @@
 <title>The Roaring Knight</title>
 
 <script type="module">
-import init, * as bindings from '/roaring-knight-web/roaring_knight-2df026e95db45624.js';
-const wasm = await init({ module_or_path: '/roaring-knight-web/roaring_knight-2df026e95db45624_bg.wasm' });
+import init, * as bindings from '/roaring-knight-web/roaring_knight-1db3a321256e1fb8.js';
+const wasm = await init({ module_or_path: '/roaring-knight-web/roaring_knight-1db3a321256e1fb8_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -26,7 +26,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
   #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #fff;
              font: 16px monospace; letter-spacing: 2px; }
 </style>
-<link rel="modulepreload" href="/roaring-knight-web/roaring_knight-2df026e95db45624.js" crossorigin="anonymous" integrity="sha384-CFIfUBtUB961A9P0Zr5roEzS+XxxKroJr2UbBnsv1Cde5tvYnO3QL2KnUjAJLKdT"><link rel="preload" href="/roaring-knight-web/roaring_knight-2df026e95db45624_bg.wasm" crossorigin="anonymous" integrity="sha384-u6PNvgvyyrfP2nWHfK1w7DMQjqr5IEBcuPIXkTSx3pF8D+ceLt12X9avse3fRx2g" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/roaring-knight-web/roaring_knight-1db3a321256e1fb8.js" crossorigin="anonymous" integrity="sha384-7g8x2e/kv7DNFhnTs9mWIwya8nIITCgEgLCmSTvcTONwlFrd3T9HViqY1NBRR2kh"><link rel="preload" href="/roaring-knight-web/roaring_knight-1db3a321256e1fb8_bg.wasm" crossorigin="anonymous" integrity="sha384-YrhU6xof13wsIAYG2ay6soqITF5j8FPfDnC5nHX2A6nTc3cLjhVp365P1dO4AmWH" as="fetch" type="application/wasm"></head>
 <body>
 <canvas id="screen"></canvas>
 <div id="loading">LOADING...</div>
