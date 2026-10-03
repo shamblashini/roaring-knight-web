@@ -37,6 +37,7 @@ def main():
     sounds = json.load(open(os.path.join(RAW, "sounds.json")))
     objects = json.load(open(os.path.join(RAW, "objects.json")))
     depths = json.load(open(os.path.join(RAW, "object_depths.json")))
+    nslice = json.load(open(os.path.join(RAW, "nineslice.json")))
 
     want_objs = referenced("obj_")
     want_spr = (referenced("spr_") | EXTRA_SPRITES)
@@ -120,6 +121,8 @@ def main():
         })
         if name in masks and s["sepmasks"] == 1:
             e["mask"] = masks[name]
+        if name in nslice:
+            e["ns"] = nslice[name]
         p = placed.get(k)
         e["frames"][i] = None if p is None else [remap[p[0]], p[1], p[2], im.width, im.height, ox, oy]
 

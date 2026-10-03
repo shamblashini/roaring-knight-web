@@ -43,9 +43,22 @@ pub struct Sprite {
     pub masks: Vec<Vec<u8>>,
     pub mask_w: usize,
     pub mask_h: usize,
+    /// GameMaker nine-slice borders [left, top, right, bottom] (unscaled when the sprite is stretched)
+    pub nineslice: Option<[f64; 4]>,
 }
 
 impl Sprite {
+    /// Nine-slice mapping of a destination coordinate `u` (0..dest) back to source pixels (0..src).
+    pub fn nineslice_map(u: f64, dest: f64, src: f64, a: f64, b: f64) -> f64 {
+        if u < a {
+            u
+        } else if u > dest - b {
+            src - (dest - u)
+        } else {
+            let mid_d = (dest - a - b).max(0.0001);
+            a + (u - a) * (src - a - b) / mid_d
+        }
+    }
     pub fn frame_count(&self) -> usize { self.frames.len().max(1) }
     pub fn mask_at(&self, frame: usize, px: i64, py: i64) -> bool {
         if px < 0 || py < 0 || px as usize >= self.mask_w || py as usize >= self.mask_h {
@@ -82,6 +95,7 @@ struct RawSprite {
     speedtype: i32,
     frames: Vec<Option<[f64; 7]>>,
     mask: Option<RawMask>,
+    ns: Option<[f64; 4]>,
 }
 #[derive(Deserialize)]
 struct RawFont {
@@ -232,6 +246,7 @@ impl Assets {
                 masks,
                 mask_w: mw,
                 mask_h: mh,
+                nineslice: r.ns,
             });
         }
         let mut fnames: Vec<_> = raw.fonts.keys().cloned().collect();

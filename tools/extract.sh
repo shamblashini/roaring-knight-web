@@ -16,5 +16,6 @@ export RK_OUT="$ROOT/extract/raw"
 "$UTMT" dump "$ROOT/extract/data.win" -o "$ROOT/extract/dump" -c UMT_DUMP_ALL </dev/null
 "$UTMT" load "$ROOT/extract/data.win" -s "$ROOT/tools/export_assets.csx" </dev/null
 "$UTMT" load "$ROOT/extract/data.win" -s "$ROOT/tools/export_masks.csx" </dev/null
+"$UTMT" load "$ROOT/extract/data.win" -s "$ROOT/tools/export_nineslice.csx" </dev/null
 python3 "$ROOT/tools/object_depths.py"
 echo "extract done"

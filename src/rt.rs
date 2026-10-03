@@ -1004,6 +1004,7 @@ impl Game {
             masks: vec![],
             mask_w: w as usize,
             mask_h: h as usize,
+            nineslice: None,
         });
         id
     }
@@ -1033,6 +1034,12 @@ impl Game {
     }
 
     pub fn draw_sprite_ext(&mut self, s: Spr, sub: f64, x: f64, y: f64, xs: f64, ys: f64, rot: f64, col: Color, alpha: f64) {
+        if let Some(ns) = self.sprite(s).and_then(|sp| sp.nineslice) {
+            if xs > 0.0 && ys > 0.0 && (xs != 1.0 || ys != 1.0) {
+                self.draw_nineslice(s, sub, x, y, xs, ys, rot, col, alpha, ns);
+                return;
+            }
+        }
         let Some((f, ox, oy)) = self.frame_of(s, sub) else { return };
         let (sn, cs) = (rot.to_radians().sin(), rot.to_radians().cos());
         let tf = |lx: f64, ly: f64| -> [f32; 2] {
@@ -1048,6 +1055,34 @@ impl Game {
         let c = rgba(col, alpha);
         self.gfx.quad(f.tex, [tf(l, t), tf(r, t), tf(r, b), tf(l, b)], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], [c; 4]);
     }
+    /// GameMaker nine-slice drawing: corners keep their size, edges and centre stretch.
+    fn draw_nineslice(&mut self, s: Spr, sub: f64, x: f64, y: f64, xs: f64, ys: f64, rot: f64, col: Color, alpha: f64, ns: [f64; 4]) {
+        let Some(sp) = self.sprite(s) else { return };
+        let (w, h, ox, oy) = (sp.w, sp.h, sp.ox, sp.oy);
+        let (dw, dh) = (w * xs, h * ys);
+        let [l, t, r, b] = ns;
+        let sx = [0.0, l, w - r, w];
+        let sy = [0.0, t, h - b, h];
+        let dx = [0.0, l, dw - r, dw];
+        let dy = [0.0, t, dh - b, dh];
+        let (sn, cs) = (rot.to_radians().sin(), rot.to_radians().cos());
+        for j in 0..3 {
+            for i in 0..3 {
+                let (sw, sh) = (sx[i + 1] - sx[i], sy[j + 1] - sy[j]);
+                let (pw, ph) = (dx[i + 1] - dx[i], dy[j + 1] - dy[j]);
+                if sw <= 0.0 || sh <= 0.0 || pw <= 0.0 || ph <= 0.0 {
+                    continue;
+                }
+                // part's top-left relative to the instance position, before rotation
+                let lx = dx[i] - ox * xs;
+                let ly = dy[j] - oy * ys;
+                let px = x + lx * cs + ly * sn;
+                let py = y - lx * sn + ly * cs;
+                self.draw_sprite_general(s, sub, sx[i], sy[j], sw, sh, px, py, pw / sw, ph / sh, rot, [col; 4], alpha);
+            }
+        }
+    }
+
     pub fn draw_sprite(&mut self, s: Spr, sub: f64, x: f64, y: f64) {
         let a = self.gfx.draw_alpha;
         self.draw_sprite_ext(s, sub, x, y, 1.0, 1.0, 0.0, C_WHITE, a);
@@ -1266,8 +1301,13 @@ impl Game {
         if i.image_xscale == 0.0 || i.image_yscale == 0.0 {
             return false;
         }
-        let lx = lx / i.image_xscale + sp.ox;
-        let ly = ly / i.image_yscale + sp.oy;
+        let (lx, ly) = match sp.nineslice {
+            Some([l, t, r, b]) if i.image_xscale > 0.0 && i.image_yscale > 0.0 => (
+                Sprite::nineslice_map(lx + sp.ox * i.image_xscale, sp.w * i.image_xscale, sp.w, l, r),
+                Sprite::nineslice_map(ly + sp.oy * i.image_yscale, sp.h * i.image_yscale, sp.h, t, b),
+            ),
+            _ => (lx / i.image_xscale + sp.ox, ly / i.image_yscale + sp.oy),
+        };
         let (mx, my) = (lx.floor() as i64, ly.floor() as i64);
         if sp.kind == 2 || sp.masks.is_empty() {
             return mx as f64 >= sp.bl && mx as f64 <= sp.br && my as f64 >= sp.bt && my as f64 <= sp.bb;
@@ -1601,7 +1641,7 @@ impl Game {
                 i.id, i.object, i.x, i.y, i.depth, crate::assets::sprite_name(i.sprite_index), i.image_index, i.image_alpha, i.visible, i.image_xscale
             );
         }
-        out += &format!("mnfight={} myfight={} bmenuno={} turntimer={} inv={} knighthp={} hp={:?} tp={}\n", self.glob.mnfight, self.glob.myfight, self.glob.bmenuno, self.glob.turntimer, self.glob.inv, self.glob.monsterhp[0], &self.glob.hp[1..4], self.glob.tension);
+        out += &format!("mnfight={} myfight={} bmenuno={} turntimer={} inv={} knighthp={} hp={:?} tp={} outcome={}\n", self.glob.mnfight, self.glob.myfight, self.glob.bmenuno, self.glob.turntimer, self.glob.inv, self.glob.monsterhp[0], &self.glob.hp[1..4], self.glob.tension, self.glob.ex("battle_outcome"));
         out
     }
 

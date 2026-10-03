@@ -1,4 +1,4 @@
-//! Top-level flow: title screen → battle → outcome screen → title.
+//! Top-level flow: title screen → battle → (defeat flash → title | win → outcome screen → title).
 
 use crate::assets::font;
 use crate::gfx::{C_GRAY, C_WHITE, C_YELLOW};
@@ -9,6 +9,8 @@ use crate::rt::{Game, HAlign, Inst, VAlign};
 pub enum Phase {
     Title,
     Battle,
+    /// defeat: fountain-seal style light burst, then back to the title (retry) screen
+    Flash,
     Outcome,
 }
 
@@ -20,11 +22,15 @@ pub struct Scene {
     /// how many times the battle was lost (scr_get_knight_total_attempts)
     pub attempts: f64,
     loaded_wait: f64,
+    /// timer of the defeat flash (frames)
+    flash_t: f64,
+    /// fade-in from black when the title is shown after a defeat
+    title_fade: f64,
 }
 
 impl Scene {
     pub fn new(_g: &mut Game) -> Scene {
-        Scene { phase: Phase::Title, timer: 0.0, title_cursor: 0, outcome: 0, attempts: 0.0, loaded_wait: 0.0 }
+        Scene { phase: Phase::Title, timer: 0.0, title_cursor: 0, outcome: 0, attempts: 0.0, loaded_wait: 0.0, flash_t: 0.0, title_fade: 0.0 }
     }
 }
 
@@ -80,6 +86,11 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
     match s.phase {
         Phase::Title => {
             s.loaded_wait += 1.0;
+            if s.title_fade > 0.0 {
+                // still fading in from the defeat flash: ignore input
+                s.title_fade -= 0.05;
+                return;
+            }
             if g.input.pressed(Key::Up) || g.input.pressed(Key::Down) {
                 s.title_cursor = 1 - s.title_cursor;
                 g.snd_play("snd_menumove");
@@ -105,15 +116,35 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
                     s.outcome = outcome;
                     s.timer = 0.0;
                 }
-                // let the battle's own exit animation (white fade / panel slide) play out
-                if s.timer > 150.0 {
-                    if outcome != 2 {
-                        s.attempts += 1.0;
+                if outcome == 2 {
+                    // the Knight was struck after the Roaring: let its white fade play, then show the result
+                    if s.timer > 150.0 {
+                        reset_world(g);
+                        s.phase = Phase::Outcome;
+                        s.timer = 0.0;
                     }
-                    reset_world(g);
-                    s.phase = Phase::Outcome;
-                    s.timer = 0.0;
+                } else {
+                    // defeat: flash straight back to the retry screen
+                    s.attempts += 1.0;
+                    g.audio.stop_all();
+                    g.snd_play("snd_dtrans_lw");
+                    s.phase = Phase::Flash;
+                    s.flash_t = 0.0;
                 }
+            }
+        }
+        Phase::Flash => {
+            s.flash_t += 1.0;
+            if s.flash_t == FLASH_CLEAR {
+                // the screen is fully white: tear the battle down underneath
+                reset_world(g);
+            }
+            if s.flash_t >= FLASH_END {
+                s.outcome = 0;
+                s.title_cursor = 0;
+                s.title_fade = 1.0;
+                s.phase = Phase::Title;
+                s.timer = 0.0;
             }
         }
         Phase::Outcome => {
@@ -128,6 +159,39 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
 }
 
 pub fn scene_draw_under(_s: &mut Scene, _g: &mut Game) {}
+
+// Defeat flash timeline (frames), modelled on obj_darkfountain_event (the fountain seal):
+// light bands spread from the centre, the screen fills white, then fades to black.
+const FLASH_WHITE: f64 = 25.0;
+const FLASH_CLEAR: f64 = 55.0;
+const FLASH_BLACK: f64 = 65.0;
+const FLASH_END: f64 = 110.0;
+
+/// The seal-style flash overlay drawn over the battle.
+fn draw_flash(g: &mut Game, t: f64) {
+    let gx = &mut g.gfx;
+    // expanding vertical light bands (obj_darkfountain_event Draw, t >= 400)
+    let rs = t * 0.6;
+    gx.draw_set_color(C_WHITE);
+    for i in 1..12 {
+        let i = i as f64;
+        gx.draw_set_alpha(((rs / 16.0) - (i / 12.0)).clamp(0.0, 1.0));
+        gx.draw_rectangle(320.0 - i * i - rs * i, 0.0, 320.0 + i * i + rs * i, 500.0, false);
+    }
+    // full white
+    if t >= FLASH_WHITE {
+        gx.draw_set_alpha(((t - FLASH_WHITE) * 0.04).min(1.0));
+        gx.draw_rectangle(-10.0, -10.0, 999.0, 999.0, false);
+    }
+    // fade to black
+    if t >= FLASH_BLACK {
+        gx.draw_set_color(0);
+        gx.draw_set_alpha(((t - FLASH_BLACK) / (FLASH_END - FLASH_BLACK - 10.0)).min(1.0));
+        gx.draw_rectangle(-10.0, -10.0, 999.0, 999.0, false);
+    }
+    gx.draw_set_alpha(1.0);
+    gx.draw_set_color(C_WHITE);
+}
 
 fn centered(g: &mut Game, y: f64, text: &str, col: u32, scale: f64) {
     g.draw_set_halign(HAlign::Center);
@@ -147,7 +211,7 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
             g.draw_set_font(font("fnt_mainbig"));
             centered(g, 330.0, "THE ROARING KNIGHT", C_WHITE, 1.0);
             g.draw_set_font(font("fnt_main"));
-            let items = ["BEGIN", if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" }];
+            let items = [if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" }, if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" }];
             for (i, it) in items.iter().enumerate() {
                 let col = if i == s.title_cursor { C_YELLOW } else { C_WHITE };
                 centered(g, 380.0 + i as f64 * 22.0, it, col, 1.0);
@@ -156,8 +220,16 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
             if s.attempts > 0.0 {
                 centered(g, 462.0, &format!("ATTEMPTS: {}", s.attempts), C_GRAY, 0.5);
             }
+            if s.title_fade > 0.0 {
+                g.gfx.draw_set_color(0);
+                g.gfx.draw_set_alpha(s.title_fade.min(1.0));
+                g.gfx.draw_rectangle(-10.0, -10.0, 999.0, 999.0, false);
+                g.gfx.draw_set_alpha(1.0);
+                g.gfx.draw_set_color(C_WHITE);
+            }
         }
         Phase::Battle => {}
+        Phase::Flash => draw_flash(g, s.flash_t),
         Phase::Outcome => {
             g.draw_set_font(font("fnt_mainbig"));
             let (title, body) = match s.outcome {
