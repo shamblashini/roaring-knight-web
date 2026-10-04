@@ -71,6 +71,24 @@ impl Audio {
 
     pub fn loaded_count(&self) -> usize { self.buffers.borrow().len() }
 
+    /// Change the master volume (0..1) and apply it to everything that is already playing.
+    pub fn set_master(&mut self, m: f64) {
+        self.master = m.clamp(0.0, 1.0);
+        let Some(ctx) = &self.ctx else { return };
+        let now = ctx.current_time();
+        for v in self.voices.values() {
+            if v.paused {
+                continue;
+            }
+            let g = v.gain.gain();
+            let _ = g.cancel_scheduled_values(now);
+            let _ = g.set_value_at_time((v.base_vol * v.vol * self.master) as f32, now);
+        }
+        if self.master > 0.0 {
+            let _ = ctx.resume();
+        }
+    }
+
     fn cleanup(&mut self) {
         self.voices.retain(|_, v| !*v.ended.borrow());
     }

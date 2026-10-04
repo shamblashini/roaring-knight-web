@@ -34,14 +34,30 @@ pub struct Scene {
     battle_fade: f64,
     /// hold-Escape counter (obj_time quit_timer): 30 frames held = quit to the title
     quit_timer: f64,
+    /// master volume in 10% steps (0..=10)
+    pub volume: i32,
 }
 
 const STORAGE_KEY_INSTANT: &str = "rk_instant_retry";
+const STORAGE_KEY_VOLUME: &str = "rk_volume";
+
+fn apply_volume(g: &mut Game, steps: i32) {
+    g.audio.set_master(steps as f64 / 10.0);
+}
 
 fn storage() -> Option<web_sys::Storage> { web_sys::window().and_then(|w| w.local_storage().ok().flatten()) }
 
 impl Scene {
-    pub fn new(_g: &mut Game) -> Scene {
+    pub fn new(g: &mut Game) -> Scene {
+        let volume = storage()
+            .and_then(|st| st.get_item(STORAGE_KEY_VOLUME).ok().flatten())
+            .and_then(|v| v.parse::<i32>().ok())
+            .unwrap_or(10)
+            .clamp(0, 10);
+        // ?mute=1 (testing) keeps the audio off regardless of the saved volume
+        if g.audio.master > 0.0 {
+            apply_volume(g, volume);
+        }
         let instant_retry = storage().and_then(|st| st.get_item(STORAGE_KEY_INSTANT).ok().flatten()).as_deref() == Some("1");
         Scene {
             phase: Phase::Title,
@@ -56,6 +72,7 @@ impl Scene {
             flash_quick: false,
             battle_fade: 0.0,
             quit_timer: 0.0,
+            volume,
         }
     }
 }
@@ -109,9 +126,18 @@ fn start(s: &mut Scene, g: &mut Game) {
 
 /// Title menu entries, top to bottom.
 const MENU_START: usize = 0;
-const MENU_INSTANT: usize = 1;
-const MENU_HITBOXES: usize = 2;
-const MENU_COUNT: usize = 3;
+const MENU_VOLUME: usize = 1;
+const MENU_INSTANT: usize = 2;
+const MENU_HITBOXES: usize = 3;
+const MENU_COUNT: usize = 4;
+
+fn muted_by_url() -> bool {
+    web_sys::window()
+        .and_then(|w| w.location().search().ok())
+        .and_then(|q| web_sys::UrlSearchParams::new_with_str(&q).ok())
+        .and_then(|p| p.get("mute"))
+        .is_some()
+}
 
 /// Back to the title screen (fading in from black).
 fn to_title(s: &mut Scene, g: &mut Game) {
@@ -160,7 +186,22 @@ pub fn scene_update(s: &mut Scene, g: &mut Game) {
                 s.title_cursor = (s.title_cursor + 1) % MENU_COUNT;
                 g.snd_play("snd_menumove");
             }
-            if g.input.pressed(Key::B1) {
+            if s.title_cursor == MENU_VOLUME && (g.input.pressed(Key::Left) || g.input.pressed(Key::Right)) {
+                let d = if g.input.pressed(Key::Left) { -1 } else { 1 };
+                let v = (s.volume + d).clamp(0, 10);
+                if v != s.volume {
+                    s.volume = v;
+                    if let Some(st) = storage() {
+                        let _ = st.set_item(STORAGE_KEY_VOLUME, &v.to_string());
+                    }
+                    if !muted_by_url() {
+                        apply_volume(g, v);
+                    }
+                    // preview at the new level
+                    g.snd_play("snd_menumove");
+                }
+            }
+            if g.input.pressed(Key::B1) && s.title_cursor != MENU_VOLUME {
                 g.snd_play("snd_select");
                 match s.title_cursor {
                     MENU_INSTANT => {
@@ -309,6 +350,33 @@ fn set_disclaimer_visible(visible: bool) {
     }
 }
 
+/// `VOLUME ▮▮▮▮▮▮▮□□□ 70%` (with `<` `>` hints while selected), centred on the screen.
+fn draw_volume_slider(g: &mut Game, y: f64, steps: i32, col: u32, selected: bool) {
+    let (seg, gap) = (9.0, 3.0);
+    let bar_w = 10.0 * seg;
+    let label = "VOLUME ";
+    let pct = format!(" {}%", steps * 10);
+    let (lw, pw) = (g.string_width(label), g.string_width(" 100%"));
+    let total = lw + bar_w + pw;
+    let x0 = (320.0 - total / 2.0).floor();
+    g.draw_set_halign(HAlign::Left);
+    g.draw_set_valign(VAlign::Top);
+    g.draw_text_transformed_color(x0, y, label, 1.0, 1.0, 0.0, [col; 4], 1.0);
+    let bx = x0 + lw;
+    for k in 0..10 {
+        let c = if k < steps { col } else { C_GRAY };
+        g.gfx.draw_set_color(c);
+        let sx = bx + k as f64 * seg;
+        g.gfx.draw_rectangle(sx, y + 4.0, sx + seg - gap, y + 11.0, k >= steps);
+    }
+    g.gfx.draw_set_color(C_WHITE);
+    g.draw_text_transformed_color(bx + bar_w, y, &pct, 1.0, 1.0, 0.0, [col; 4], 1.0);
+    if selected {
+        g.draw_text_transformed_color(x0 - 18.0, y, "<", 1.0, 1.0, 0.0, [col; 4], 1.0);
+        g.draw_text_transformed_color(x0 + total + 8.0, y, ">", 1.0, 1.0, 0.0, [col; 4], 1.0);
+    }
+}
+
 fn centered(g: &mut Game, y: f64, text: &str, col: u32, scale: f64) {
     g.draw_set_halign(HAlign::Center);
     g.draw_set_valign(VAlign::Top);
@@ -329,13 +397,18 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
             centered(g, 296.0, "THE ROARING KNIGHT", C_WHITE, 1.0);
             g.draw_set_font(font("fnt_main"));
             let items = [
-                if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" },
-                if s.instant_retry { "INSTANT RETRY: ON" } else { "INSTANT RETRY: OFF" },
-                if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" },
+                (if s.attempts > 0.0 { "TRY AGAIN" } else { "BEGIN" }).to_string(),
+                String::new(), // volume slider, drawn below
+                (if s.instant_retry { "INSTANT RETRY: ON" } else { "INSTANT RETRY: OFF" }).to_string(),
+                (if g.show_hitboxes { "HITBOXES: ON" } else { "HITBOXES: OFF" }).to_string(),
             ];
             for (i, it) in items.iter().enumerate() {
                 let col = if i == s.title_cursor { C_YELLOW } else { C_WHITE };
-                centered(g, 346.0 + i as f64 * 22.0, it, col, 1.0);
+                if i == MENU_VOLUME {
+                    draw_volume_slider(g, 342.0 + i as f64 * 20.0, s.volume, col, i == s.title_cursor);
+                } else {
+                    centered(g, 342.0 + i as f64 * 20.0, it, col, 1.0);
+                }
             }
             if s.attempts > 0.0 {
                 g.draw_set_font(font("fnt_small"));
@@ -343,7 +416,7 @@ pub fn scene_draw_over(s: &mut Scene, g: &mut Game) {
                 g.draw_set_font(font("fnt_main"));
             }
             g.draw_set_font(font("fnt_main"));
-            centered(g, 422.0, "Z confirm   X cancel   C menu   F fullscreen   hold ESC quit", C_GRAY, 1.0);
+            centered(g, 430.0, "Z confirm   X cancel   C menu   F fullscreen   hold ESC quit", C_GRAY, 1.0);
             if s.title_fade > 0.0 {
                 g.gfx.draw_set_color(0);
                 g.gfx.draw_set_alpha(s.title_fade.min(1.0));

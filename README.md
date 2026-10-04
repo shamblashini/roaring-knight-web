@@ -53,7 +53,7 @@ trunk serve --release     # http://127.0.0.1:8080
 * `docs/PORTING.md`, `docs/BATTLE.md` — conventions used for the port
 * `tools/` — extraction (UndertaleModTool scripts), atlas packer, object table generator
 
-The title screen also has **INSTANT RETRY** (restart the battle immediately after a defeat instead of
+The title screen also has a **VOLUME** slider (Left/Right, remembered in the browser), **INSTANT RETRY** (restart the battle immediately after a defeat instead of
 returning to the title; remembered in the browser) and **HITBOXES** toggles.
 
 ## Debug URL flags
