@@ -56,6 +56,15 @@ trunk serve --release     # http://127.0.0.1:8080
 The title screen also has a **VOLUME** slider (Left/Right, remembered in the browser), **INSTANT RETRY** (restart the battle immediately after a defeat instead of
 returning to the title; remembered in the browser) and **HITBOXES** toggles.
 
+### Hitbox overlay
+
+The HITBOXES toggle (or the backquote key) draws the exact shapes the collision code tests, not bounding boxes:
+**cyan** the SOUL (a 20x20 square, as in the game), **yellow** the graze area, **red** active bullets (their
+real collision masks; e.g. a sword only hurts along its 5 px blade line), **grey** inactive bullets.
+**Orange** bullets (stars, the Roaring's stars, Flurry's split slash) only hurt when the **magenta** 3x3 square
+at the SOUL's centre touches them, as in the original game (`scr_precise_hit`). "INV n" above the SOUL shows its
+remaining invincibility frames, during which overlaps don't hurt.
+
 ## Debug URL flags
 
 | flag | effect |
@@ -66,5 +75,6 @@ returning to the title; remembered in the browser) and **HITBOXES** toggles.
 | `?postroar=1` | act as if the Roaring already happened: the next hit on the Knight ends the battle |
 | `?slow=N` | run N times slower |
 | `?mute=1` | no audio |
+| `?bg=1` | keep the game running while the page is hidden (for automated tests) |
 
 In the browser console, `wasmBindings.debug_dump()` lists every live instance plus the battle state.

@@ -185,5 +185,27 @@ pub async fn start() -> Result<(), JsValue> {
         window().request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref()).unwrap();
     }));
     window().request_animation_frame(g2.borrow().as_ref().unwrap().as_ref().unchecked_ref())?;
+
+    // debug: ?bg=1 also drives the loop from a timer while the page is hidden (browsers pause
+    // requestAnimationFrame for hidden pages), so automated tests keep running.
+    let bg = web_sys::window()
+        .and_then(|w| w.location().search().ok())
+        .and_then(|q| web_sys::UrlSearchParams::new_with_str(&q).ok())
+        .and_then(|p| p.get("bg"))
+        .is_some();
+    if bg {
+        let a = app.clone();
+        let tick = Closure::<dyn FnMut()>::new(move || {
+            let hidden = window().document().map(|d| d.hidden()).unwrap_or(false);
+            if hidden {
+                let now = window().performance().map(|p| p.now()).unwrap_or(0.0);
+                if let Ok(mut app) = a.try_borrow_mut() {
+                    app.frame(now);
+                }
+            }
+        });
+        window().set_interval_with_callback_and_timeout_and_arguments_0(tick.as_ref().unchecked_ref(), 16)?;
+        tick.forget();
+    }
     Ok(())
 }

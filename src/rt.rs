@@ -14,6 +14,11 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 
 pub type Id = i64;
+
+/// Bullets whose hit event (Other_15) only damages when a few pixels around the SOUL's centre touch them
+/// (GML scr_precise_hit); listed for the hitbox overlay.
+pub const PRECISE_HIT_BULLETS: [&str; 4] =
+    ["obj_knight_pointing_star", "obj_knight_pointing_starchild", "obj_knight_roaring_star", "obj_roaringknight_splitslash"];
 pub const NOONE: Id = -4;
 
 // ============================================================================ Inst
@@ -1645,22 +1650,97 @@ impl Game {
         out
     }
 
+    /// Debug overlay: the exact collision shape of every SOUL / bullet / graze box, as tested by `collide`
+    /// (precise masks pixel by pixel, rotated rectangles, nine-slice). Outline only.
+    /// Red = bullet that can hurt (active), grey = inactive bullet, cyan = SOUL, yellow = graze area.
+    /// Orange = bullet that only hurts when the SOUL's centre touches it (GML scr_precise_hit); while one
+    /// exists, that centre square is drawn in magenta.
     fn draw_hitboxes(&mut self) {
         let ids: Vec<Id> = self.slots.iter().flatten().filter(|s| !s.inst.destroyed).map(|s| s.inst.id).collect();
+        let mut quads: Vec<(f64, f64, u32)> = vec![];
+        let mut any_precise = false;
         for id in ids {
-            let collide = {
-                let Some(o) = self.inst(id) else { continue };
-                let o = o.object;
-                self.is_a(o, "obj_collidebullet") || o == "obj_heart"
+            let Some(o) = self.inst(id) else { continue };
+            let obj = o.object;
+            let col = if obj == "obj_heart" {
+                0xFFFF00 // cyan (BGR)
+            } else if obj == "obj_grazebox" {
+                0x00FFFF // yellow
+            } else if self.parent_chain_has(obj, "obj_collidebullet") {
+                if o.active <= 0.5 {
+                    0x808080
+                } else if PRECISE_HIT_BULLETS.contains(&obj) {
+                    any_precise = true;
+                    0x0080FF // orange
+                } else {
+                    0x0000FF
+                }
+            } else {
+                continue;
             };
-            if !collide {
+            let Some(bb) = self.bbox(o) else { continue };
+            let (w, h) = ((bb[2] - bb[0] + 1.0).max(0.0), (bb[3] - bb[1] + 1.0).max(0.0));
+            if w * h > 250_000.0 {
                 continue;
             }
-            if let Some(bb) = self.inst(id).and_then(|i| self.bbox(i)) {
-                self.gfx.draw_set_alpha(1.0);
-                self.gfx.draw_rectangle_color(bb[0], bb[1], bb[2], bb[3], 0x00FF00, 0x00FF00, 0x00FF00, 0x00FF00, true);
+            // coverage grid over the bbox, then emit edge pixels
+            let (wi, hi) = (w as usize, h as usize);
+            let mut grid = vec![false; wi * hi];
+            for yy in 0..hi {
+                for xx in 0..wi {
+                    let (px, py) = (bb[0] + xx as f64 + 0.5, bb[1] + yy as f64 + 0.5);
+                    grid[yy * wi + xx] = self.covers(o, o.x, o.y, px, py, &bb);
+                }
+            }
+            let at = |x: i64, y: i64| x >= 0 && y >= 0 && (x as usize) < wi && (y as usize) < hi && grid[y as usize * wi + x as usize];
+            for yy in 0..hi as i64 {
+                for xx in 0..wi as i64 {
+                    if at(xx, yy) && !(at(xx - 1, yy) && at(xx + 1, yy) && at(xx, yy - 1) && at(xx, yy + 1)) {
+                        quads.push((bb[0] + xx as f64, bb[1] + yy as f64, col));
+                    }
+                }
             }
         }
+        self.gfx.draw_set_alpha(1.0);
+        for (x, y, c) in quads {
+            self.gfx.draw_rectangle_color(x, y, x, y, c, c, c, c, false);
+        }
+        // the SOUL-centre square used by scr_precise_hit(3) (stars use 3, Roaring stars 2, starchildren 5)
+        if any_precise {
+            if let Some((hx, hy)) = self.ids_of("obj_heart").first().and_then(|&h| self.inst(h)).map(|h| (h.x + 10.0, h.y + 10.0)) {
+                let m = 0xFF00FF;
+                self.gfx.draw_rectangle_color(hx - 1.5, hy - 1.5, hx + 0.5, hy + 0.5, m, m, m, m, false);
+            }
+        }
+        // SOUL invincibility frames (hits are ignored while > 0)
+        if self.glob.inv > 0.0 {
+            if let Some(h) = self.ids_of("obj_heart").first().and_then(|&h| self.inst(h)).map(|h| (h.x, h.y)) {
+                let f = self.font;
+                self.font = crate::assets::font("fnt_small");
+                self.gfx.draw_set_color(0xFFFF00);
+                self.draw_text(h.0 - 2.0, h.1 - 12.0, &format!("INV {}", self.glob.inv.ceil()));
+                self.gfx.draw_set_color(C_WHITE);
+                self.font = f;
+            }
+        }
+    }
+
+    /// object_is_ancestor without needing `&mut self` (no cache update).
+    fn parent_chain_has(&self, obj: &'static str, ancestor: &str) -> bool {
+        let mut o = obj;
+        for _ in 0..16 {
+            if o == ancestor {
+                return true;
+            }
+            o = match self.parent_cache.get(o) {
+                Some(p) => p,
+                None => crate::objdata::obj_info(o).map(|i| i.parent).unwrap_or(""),
+            };
+            if o.is_empty() {
+                return false;
+            }
+        }
+        false
     }
 
     /// Remove destroyed instances from storage (end of frame).
