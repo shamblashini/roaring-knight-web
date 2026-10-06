@@ -21,6 +21,12 @@ thread_local! {
     static APP: std::cell::RefCell<Option<Rc<RefCell<App>>>> = const { std::cell::RefCell::new(None) };
 }
 
+/// Debug: worst frame timings since the last call.
+#[wasm_bindgen]
+pub fn perf_report() -> String {
+    APP.with(|a| a.borrow().as_ref().map(|app| app.borrow_mut().game.perf_report()).unwrap_or_default())
+}
+
 /// Debug hook for the browser console: `wasm_bindgen.debug_dump()` / window.rkDump().
 #[wasm_bindgen]
 pub fn debug_dump() -> String {
@@ -44,15 +50,28 @@ impl App {
         if g.input.pressed(input::Key::Debug) {
             g.show_hitboxes = !g.show_hitboxes;
         }
+        let perf = window().performance();
+        let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
         battle::scene_update(&mut self.scene, g);
         g.step();
+        let t1 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
         g.gfx.begin_frame();
         g.gfx.draw_clear_alpha(0, 1.0);
         battle::scene_draw_under(&mut self.scene, g);
         g.draw();
         battle::scene_draw_over(&mut self.scene, g);
         g.gfx.flush();
+        if g.perf_gpu_sync {
+            // debug (?gpusync=1): wait for the GPU so draw timings include GPU work
+            g.gfx.present();
+            g.gfx.gl.finish();
+        }
         g.purge();
+        let t2 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
+        // debug timing (shown in debug_dump): worst step / draw time and instance count since the last dump
+        g.perf_step_max = g.perf_step_max.max(t1 - t0);
+        g.perf_draw_max = g.perf_draw_max.max(t2 - t1);
+        g.perf_inst_max = g.perf_inst_max.max(g.instance_count());
     }
 
     fn frame(&mut self, now: f64) {
@@ -117,6 +136,7 @@ pub async fn start() -> Result<(), JsValue> {
         }
     }
     let mut game = rt::Game::new(gfx, audio, assets, seed);
+    game.perf_gpu_sync = params.as_ref().and_then(|p| p.get("gpusync")).is_some();
     game.collision_hook = Some(battle::collision_pass);
     let scene = battle::Scene::new(&mut game);
     let slow = web_sys::window()

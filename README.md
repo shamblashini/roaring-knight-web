@@ -76,5 +76,7 @@ remaining invincibility frames, during which overlaps don't hurt.
 | `?slow=N` | run N times slower |
 | `?mute=1` | no audio |
 | `?bg=1` | keep the game running while the page is hidden (for automated tests) |
+| `?gpusync=1` | wait for the GPU every frame so `wasmBindings.perf_report()` timings include GPU work |
 
-In the browser console, `wasmBindings.debug_dump()` lists every live instance plus the battle state.
+In the browser console, `wasmBindings.debug_dump()` lists every live instance plus the battle state, and
+`wasmBindings.perf_report()` returns the worst logic/draw frame times and instance count since the last call.

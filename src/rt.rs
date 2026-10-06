@@ -564,6 +564,11 @@ pub struct Game {
     /// debug: show hitboxes
     pub show_hitboxes: bool,
     pub paused: bool,
+    /// debug profiling, reset by debug_dump
+    pub perf_step_max: f64,
+    pub perf_draw_max: f64,
+    pub perf_inst_max: usize,
+    pub perf_gpu_sync: bool,
 }
 
 impl Game {
@@ -588,6 +593,10 @@ impl Game {
             collision_hook: None,
             show_hitboxes: false,
             paused: false,
+            perf_step_max: 0.0,
+            perf_draw_max: 0.0,
+            perf_inst_max: 0,
+            perf_gpu_sync: false,
         }
     }
 
@@ -1631,6 +1640,17 @@ impl Game {
         if self.show_hitboxes {
             self.draw_hitboxes();
         }
+    }
+
+    pub fn instance_count(&self) -> usize { self.slots.iter().flatten().filter(|s| !s.inst.destroyed).count() }
+
+    /// Debug: worst step/draw ms and instance count since the last call (then resets).
+    pub fn perf_report(&mut self) -> String {
+        let r = format!("step_max={:.1}ms draw_max={:.1}ms inst_max={}", self.perf_step_max, self.perf_draw_max, self.perf_inst_max);
+        self.perf_step_max = 0.0;
+        self.perf_draw_max = 0.0;
+        self.perf_inst_max = 0;
+        r
     }
 
     /// Debug: one line per live instance.
