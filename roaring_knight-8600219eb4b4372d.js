@@ -16,6 +16,23 @@ export function debug_dump() {
 }
 
 /**
+ * Debug: worst frame timings since the last call.
+ * @returns {string}
+ */
+export function perf_report() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.perf_report();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * @returns {Promise<void>}
  */
 export function start() {
@@ -205,6 +222,9 @@ function __wbg_get_imports() {
         __wbg_fetch_4178962c570137ca: function(arg0, arg1, arg2) {
             const ret = arg0.fetch(getStringFromWasm0(arg1, arg2));
             return ret;
+        },
+        __wbg_finish_173a156040775de3: function(arg0) {
+            arg0.finish();
         },
         __wbg_framebufferTexture2D_73c52f23ec33aa22: function(arg0, arg1, arg2, arg3, arg4, arg5) {
             arg0.framebufferTexture2D(arg1 >>> 0, arg2 >>> 0, arg3 >>> 0, arg4, arg5);
